@@ -1,5 +1,5 @@
 const STORAGE_KEY = "stockv2-portfolio-v1";
-const USD_TO_TWD = 32.5;
+const USD_TO_TWD = 30.33;
 
 const sampleHoldings = [
   { symbol: "2330", name: "台積電", market: "TW", shares: 120, averageCost: 980, price: 1125, previousClose: 1110 },
@@ -54,6 +54,13 @@ function percent(value, includeSign = true) {
   return `${sign}${value.toFixed(2)}%`;
 }
 
+function number(value, maximumFractionDigits = 2) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits,
+    minimumFractionDigits: 0
+  }).format(value);
+}
+
 function totals() {
   return state.holdings.reduce((result, item) => {
     const marketValue = inTwd(item.shares * item.price, item.market);
@@ -65,6 +72,17 @@ function totals() {
     result[item.market] += marketValue;
     return result;
   }, { value: 0, cost: 0, previous: 0, TW: 0, US: 0 });
+}
+
+function marketTotals(market) {
+  return state.holdings
+    .filter(item => item.market === market)
+    .reduce((result, item) => {
+      result.count += 1;
+      result.value += item.shares * item.price;
+      result.cost += item.shares * item.averageCost;
+      return result;
+    }, { count: 0, value: 0, cost: 0 });
 }
 
 function renderSummary() {
@@ -88,7 +106,28 @@ function renderSummary() {
   document.querySelector("#us-allocation").style.width = `${usPercent}%`;
   document.querySelector("#tw-percent").textContent = `${twPercent.toFixed(0)}%`;
   document.querySelector("#us-percent").textContent = `${usPercent.toFixed(0)}%`;
-  document.querySelector("#last-updated").textContent = state.updatedAt || "示範資料";
+  renderMarketSummary("TW", marketTotals("TW"));
+  renderMarketSummary("US", marketTotals("US"));
+}
+
+function renderMarketSummary(market, summary) {
+  const prefix = market.toLowerCase();
+  const profit = summary.value - summary.cost;
+  const rate = summary.cost ? (profit / summary.cost) * 100 : 0;
+  document.querySelector(`#${prefix}-holding-count`).textContent = `${summary.count} 檔持股`;
+  document.querySelector(`#${prefix}-market-value`).textContent = money(summary.value, market);
+  document.querySelector(`#${prefix}-market-cost`).textContent = money(summary.cost, market);
+  if (market === "US") {
+    document.querySelector("#us-market-cost-twd").textContent = money(inTwd(summary.cost, "US"));
+  }
+  const profitNode = document.querySelector(`#${prefix}-market-profit`);
+  const rateNode = document.querySelector(`#${prefix}-market-rate`);
+  profitNode.textContent = money(profit, market, true);
+  rateNode.textContent = percent(rate);
+  [profitNode, rateNode].forEach(node => {
+    node.classList.toggle("positive", profit >= 0);
+    node.classList.toggle("negative", profit < 0);
+  });
 }
 
 function setSignedMetric(selector, value, market) {
@@ -100,21 +139,33 @@ function setSignedMetric(selector, value, market) {
 
 function renderHoldings() {
   const holdings = state.holdings.filter(item => state.market === "ALL" || item.market === state.market);
+  const portfolioValue = totals().value;
   elements.body.innerHTML = holdings.map(item => {
     const value = item.shares * item.price;
     const cost = item.shares * item.averageCost;
     const profit = value - cost;
     const rate = cost ? (profit / cost) * 100 : 0;
-    const marketName = item.market === "TW" ? "台股" : "美股";
+    const twdCost = inTwd(cost, item.market);
+    const twdValue = inTwd(value, item.market);
+    const change = item.price - item.previousClose;
+    const changeRate = item.previousClose ? (change / item.previousClose) * 100 : 0;
+    const allocation = portfolioValue ? (twdValue / portfolioValue) * 100 : 0;
+    const profitClass = profit >= 0 ? "positive" : "negative";
+    const changeClass = change >= 0 ? "positive" : "negative";
     return `
       <tr>
-        <td><div class="stock-cell"><span class="stock-name"><strong>${item.name}</strong><small>${item.symbol} · ${marketName}</small></span></div></td>
-        <td><span class="number-main">${item.shares.toLocaleString()}</span><span class="number-sub">股</span></td>
-        <td><span class="number-main">${money(item.averageCost, item.market)}</span></td>
-        <td><span class="number-main">${money(item.price, item.market)}</span><span class="number-sub">前收 ${money(item.previousClose, item.market)}</span></td>
-        <td><span class="number-main">${money(value, item.market)}</span>${item.market === "US" ? `<span class="number-sub">約 ${money(inTwd(value, "US"))}</span>` : ""}</td>
-        <td><span class="profit-pill ${profit >= 0 ? "positive" : "negative"}"><strong>${money(profit, item.market, true)}</strong><small>${percent(rate)}</small></span></td>
-        <td><button class="row-action" data-update-symbol="${item.symbol}" aria-label="更新 ${item.name} 價格" title="更新價格">⋯</button></td>
+        <td><strong class="stock-symbol">${item.symbol}</strong></td>
+        <td>${number(item.shares, 4)}</td>
+        <td>${number(item.averageCost)}</td>
+        <td>${number(cost)}</td>
+        <td class="${profitClass}">${number(profit)}</td>
+        <td class="${profitClass}">${percent(rate, false)}</td>
+        <td>${number(item.price)}</td>
+        <td class="${changeClass}">${number(change)}</td>
+        <td class="${changeClass}">${percent(changeRate, false)}</td>
+        <td>${number(twdCost, 0)}</td>
+        <td>${percent(allocation, false)}</td>
+        <td class="action-column"><button class="row-action" data-update-symbol="${item.symbol}" aria-label="更新 ${item.name} 價格" title="更新價格">⋯</button></td>
       </tr>`;
   }).join("");
 
@@ -175,7 +226,6 @@ document.querySelectorAll(".market-tab").forEach(button => {
   });
 });
 
-document.querySelector("#open-price-dialog").addEventListener("click", () => openPriceDialog());
 document.querySelectorAll("[data-close-dialog]").forEach(button => {
   button.addEventListener("click", () => elements.dialog.close());
 });
@@ -185,13 +235,4 @@ elements.body.addEventListener("click", event => {
   const button = event.target.closest("[data-update-symbol]");
   if (button) openPriceDialog(button.dataset.updateSymbol);
 });
-document.querySelector("#reset-data").addEventListener("click", () => {
-  state.holdings = structuredClone(sampleHoldings);
-  state.updatedAt = null;
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(`${STORAGE_KEY}-updated-at`);
-  render();
-  showToast("已重設示範資料");
-});
-
 render();

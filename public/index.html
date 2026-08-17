@@ -40,11 +40,6 @@
             <h1>投資總覽</h1>
             <p class="subtitle">這是你目前的投資組合狀況。</p>
           </div>
-          <div class="header-actions">
-            <div class="sync-state"><span></span><div><small>最近更新</small><strong id="last-updated">尚未更新</strong></div></div>
-            <button class="button secondary" id="reset-data" type="button">重設示範資料</button>
-            <button class="button primary" id="open-price-dialog" type="button"><span>＋</span> 更新價格</button>
-          </div>
         </header>
 
         <section class="summary-grid" aria-label="資產摘要">
@@ -75,6 +70,30 @@
           </article>
         </section>
 
+        <section class="market-breakdown" aria-label="市場持有概況">
+          <div class="breakdown-heading">
+            <div><p class="eyebrow">MARKET BREAKDOWN</p><h2>市場持有概況</h2></div>
+            <span>依目前持股計算</span>
+          </div>
+          <div class="market-summary-list">
+            <article class="market-summary-item">
+              <div class="market-identity"><div><strong>台股</strong><small id="tw-holding-count">0 檔持股</small></div></div>
+              <div class="market-stat"><small>持有市值</small><strong id="tw-market-value">NT$0</strong></div>
+              <div class="market-stat"><small>成本</small><strong id="tw-market-cost">NT$0</strong></div>
+              <div class="market-stat"><small>損益</small><strong id="tw-market-profit">NT$0</strong></div>
+              <div class="market-stat"><small>報酬率</small><strong id="tw-market-rate">0%</strong></div>
+            </article>
+            <article class="market-summary-item us-summary-item">
+              <div class="market-identity"><div><strong>美股</strong><small id="us-holding-count">0 檔持股</small></div></div>
+              <div class="market-stat"><small>持有市值</small><strong id="us-market-value">US$0</strong></div>
+              <div class="market-stat"><small>成本</small><strong id="us-market-cost">US$0</strong></div>
+              <div class="market-stat"><small>台幣成本</small><strong id="us-market-cost-twd">NT$0</strong></div>
+              <div class="market-stat"><small>損益</small><strong id="us-market-profit">US$0</strong></div>
+              <div class="market-stat"><small>報酬率</small><strong id="us-market-rate">0%</strong></div>
+            </article>
+          </div>
+        </section>
+
         <section class="holdings-section">
           <div class="section-heading">
             <div><h2>目前持股</h2><p id="holding-count">0 檔持股</p></div>
@@ -87,12 +106,27 @@
 
           <div class="table-wrap">
             <table>
-              <thead><tr><th>標的</th><th>持有股數</th><th>平均成本</th><th>最新價格</th><th>目前市值</th><th>未實現損益</th><th></th></tr></thead>
+              <thead>
+                <tr>
+                  <th><span class="sr-only">股票代號</span></th>
+                  <th>股數</th>
+                  <th>均價</th>
+                  <th>成本</th>
+                  <th>損益</th>
+                  <th>損益%</th>
+                  <th>股價</th>
+                  <th>漲跌</th>
+                  <th>幅度</th>
+                  <th>台幣成本</th>
+                  <th>佔比</th>
+                  <th class="action-column"><span class="sr-only">操作</span></th>
+                </tr>
+              </thead>
               <tbody id="holdings-body"></tbody>
             </table>
             <div class="empty-state" id="empty-state" hidden><strong>這個市場目前沒有持股</strong><span>切換其他市場，或稍後從交易紀錄新增股票。</span></div>
           </div>
-          <p class="table-note">美股資產依示範匯率 1 USD = NT$32.50 換算；各列仍以原幣顯示。</p>
+          <p class="table-note">美股的換台幣成本目前統一依匯率 1 USD = NT$30.33 計算。</p>
         </section>
       </main>
     </div>
