@@ -1,6 +1,6 @@
 # StockV2
 
-個人用的台股與美股投資損益管理系統。
+個人用的台股與美股投資損益管理系統，使用 Firebase Authentication 與 Realtime Database 儲存個人資料。
 
 ## 第一版目標
 
@@ -27,4 +27,6 @@
 npm start
 ```
 
-接著開啟 `http://127.0.0.1:3000`。
+接著開啟 `http://localhost:3000`。Google 登入需要將 `localhost` 加入 Firebase Authentication 的 Authorized domains。
+
+Firebase 設定與安全規則注意事項請參考 [`docs/firebase-setup.md`](docs/firebase-setup.md)。

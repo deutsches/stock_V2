@@ -1,18 +1,21 @@
+import {
+  observeAuthentication,
+  observeConnection,
+  observeHoldings,
+  replaceHoldings,
+  signInWithGoogle,
+  signOutUser
+} from "./firebase-service.js";
+
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const USD_TO_TWD = 30.33;
 
-const sampleHoldings = [
-  { symbol: "2330", name: "台積電", market: "TW", shares: 120, averageCost: 980, price: 1125, previousClose: 1110 },
-  { symbol: "0050", name: "元大台灣50", market: "TW", shares: 600, averageCost: 178.4, price: 193.2, previousClose: 191.9 },
-  { symbol: "2454", name: "聯發科", market: "TW", shares: 80, averageCost: 1288, price: 1245, previousClose: 1260 },
-  { symbol: "AAPL", name: "Apple", market: "US", shares: 18, averageCost: 201.35, price: 228.72, previousClose: 226.34 },
-  { symbol: "NVDA", name: "NVIDIA", market: "US", shares: 32, averageCost: 154.9, price: 181.45, previousClose: 179.84 }
-];
-
 const state = {
   market: "ALL",
-  holdings: loadHoldings(),
-  updatedAt: localStorage.getItem(`${STORAGE_KEY}-updated-at`)
+  holdings: [],
+  user: null,
+  unsubscribeHoldings: null,
+  firebaseLoaded: false
 };
 
 const elements = {
@@ -38,15 +41,21 @@ const elements = {
   holdingCalculatedAverage: document.querySelector("#holding-calculated-average"),
   holdingPrice: document.querySelector("#holding-price"),
   holdingFormError: document.querySelector("#holding-form-error"),
+  authScreen: document.querySelector("#auth-screen"),
+  appShell: document.querySelector("#app-shell"),
+  authMessage: document.querySelector("#auth-message"),
+  firebaseStatus: document.querySelector("#firebase-status"),
+  firebaseStatusDot: document.querySelector("#firebase-status-dot"),
+  signedInEmail: document.querySelector("#signed-in-email"),
   toast: document.querySelector("#toast")
 };
 
-function loadHoldings() {
+function loadLocalHoldings() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return Array.isArray(stored) ? stored : structuredClone(sampleHoldings);
+    return Array.isArray(stored) ? stored : [];
   } catch {
-    return structuredClone(sampleHoldings);
+    return [];
   }
 }
 
@@ -65,7 +74,8 @@ function escapeHtml(value) {
 }
 
 function saveHoldings() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.holdings));
+  if (!state.user) return Promise.reject(new Error("尚未登入 Firebase"));
+  return replaceHoldings(state.user.uid, state.holdings);
 }
 
 function inTwd(value, market) {
@@ -232,7 +242,7 @@ function syncPriceInput() {
   renderCalculatedAverage(elements.updateShares, elements.updateTotalCost, elements.updateCalculatedAverage, selected.market);
 }
 
-function savePrice(event) {
+async function savePrice(event) {
   event.preventDefault();
   const holding = state.holdings.find(item => holdingKey(item) === elements.symbol.value);
   const newShares = Number(elements.updateShares.value);
@@ -240,13 +250,18 @@ function savePrice(event) {
   const newPrice = Number(elements.price.value);
   if (!holding || !Number.isFinite(newShares) || newShares <= 0 || !Number.isFinite(newTotalCost) || newTotalCost < 0 || !Number.isFinite(newPrice) || newPrice <= 0) return;
 
+  const previousHolding = { ...holding };
   holding.shares = newShares;
   holding.averageCost = newTotalCost / newShares;
   if (newPrice !== holding.price) holding.previousClose = holding.price;
   holding.price = newPrice;
-  state.updatedAt = new Intl.DateTimeFormat("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
-  saveHoldings();
-  localStorage.setItem(`${STORAGE_KEY}-updated-at`, state.updatedAt);
+  try {
+    await saveHoldings();
+  } catch (error) {
+    Object.assign(holding, previousHolding);
+    showToast(`儲存失敗：${friendlyFirebaseError(error)}`);
+    return;
+  }
   elements.dialog.close();
   render();
   showToast(`${holding.name} 的股數與價格已更新`);
@@ -280,7 +295,7 @@ function renderCalculatedAverage(sharesInput, costInput, output, market) {
   output.textContent = `${market === "US" ? "US$" : "NT$"}${number(totalCost / shares)}`;
 }
 
-function addHolding(event) {
+async function addHolding(event) {
   event.preventDefault();
   const market = elements.holdingMarket.value;
   const symbol = elements.holdingSymbol.value.trim().toUpperCase();
@@ -301,19 +316,31 @@ function addHolding(event) {
   }
 
   state.holdings.push(newHolding);
-  saveHoldings();
+  try {
+    await saveHoldings();
+  } catch (error) {
+    state.holdings.pop();
+    elements.holdingFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
+    return;
+  }
   elements.holdingDialog.close();
   render();
   showToast(`${name} 已加入持股`);
 }
 
-function deleteHolding() {
+async function deleteHolding() {
   const index = state.holdings.findIndex(item => holdingKey(item) === elements.symbol.value);
   if (index < 0) return;
   const holding = state.holdings[index];
   if (!window.confirm(`確定要刪除 ${holding.symbol} ${holding.name}？此操作不會保留交易紀錄。`)) return;
   state.holdings.splice(index, 1);
-  saveHoldings();
+  try {
+    await saveHoldings();
+  } catch (error) {
+    state.holdings.splice(index, 0, holding);
+    showToast(`刪除失敗：${friendlyFirebaseError(error)}`);
+    return;
+  }
   elements.dialog.close();
   render();
   showToast(`${holding.name} 已刪除`);
@@ -324,6 +351,16 @@ function showToast(message) {
   elements.toast.classList.add("visible");
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => elements.toast.classList.remove("visible"), 2400);
+}
+
+function friendlyFirebaseError(error) {
+  const code = error?.code || "";
+  if (code.includes("permission-denied") || code.includes("PERMISSION_DENIED")) return "Firebase 權限不足，請檢查 Database Rules";
+  if (code.includes("network-request-failed")) return "目前無法連接網路";
+  if (code.includes("popup-blocked")) return "登入視窗被瀏覽器封鎖";
+  if (code.includes("unauthorized-domain")) return "目前網址尚未加入 Firebase 授權網域";
+  if (code.includes("operation-not-allowed")) return "Firebase 尚未啟用 Google 登入提供者";
+  return error?.message || "未知錯誤";
 }
 
 document.querySelectorAll(".market-tab").forEach(button => {
@@ -358,4 +395,74 @@ elements.body.addEventListener("click", event => {
   const button = event.target.closest("[data-update-key]");
   if (button) openPriceDialog(button.dataset.updateKey);
 });
-render();
+
+document.querySelector("#google-sign-in").addEventListener("click", async () => {
+  elements.authMessage.textContent = "正在開啟 Google 登入視窗…";
+  try {
+    await signInWithGoogle();
+  } catch (error) {
+    elements.authMessage.textContent = friendlyFirebaseError(error);
+  }
+});
+
+document.querySelector("#sign-out").addEventListener("click", async () => {
+  try {
+    await signOutUser();
+  } catch (error) {
+    showToast(`登出失敗：${friendlyFirebaseError(error)}`);
+  }
+});
+
+observeConnection(isConnected => {
+  elements.firebaseStatus.textContent = isConnected ? "Firebase 已連線" : "Firebase 離線";
+  elements.firebaseStatusDot.classList.toggle("offline", !isConnected);
+});
+
+observeAuthentication(user => {
+  state.unsubscribeHoldings?.();
+  state.unsubscribeHoldings = null;
+  state.user = user;
+  state.firebaseLoaded = false;
+
+  if (!user) {
+    state.holdings = [];
+    elements.appShell.hidden = true;
+    elements.authScreen.hidden = false;
+    elements.authMessage.textContent = "請使用已啟用的 Google 帳號登入";
+    return;
+  }
+
+  elements.authScreen.hidden = true;
+  elements.appShell.hidden = false;
+  elements.signedInEmail.textContent = user.email || "已登入";
+  state.unsubscribeHoldings = observeHoldings(user.uid, async holdings => {
+    if (!state.firebaseLoaded) {
+      state.firebaseLoaded = true;
+      const localHoldings = loadLocalHoldings();
+      const migrationDismissed = localStorage.getItem(`${STORAGE_KEY}-migration-dismissed`) === "true";
+      if (holdings.length === 0 && localHoldings.length > 0 && !migrationDismissed) {
+        const shouldMigrate = window.confirm(`發現瀏覽器中有 ${localHoldings.length} 檔持股，是否搬移到 Firebase？`);
+        if (shouldMigrate) {
+          state.holdings = localHoldings;
+          try {
+            await saveHoldings();
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(`${STORAGE_KEY}-updated-at`);
+            showToast("本機持股已搬移到 Firebase");
+            return;
+          } catch (error) {
+            showToast(`搬移失敗：${friendlyFirebaseError(error)}`);
+          }
+        } else {
+          localStorage.setItem(`${STORAGE_KEY}-migration-dismissed`, "true");
+        }
+      }
+    }
+    state.holdings = holdings;
+    render();
+  }, error => {
+    state.holdings = [];
+    render();
+    showToast(`讀取失敗：${friendlyFirebaseError(error)}`);
+  });
+});

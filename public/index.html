@@ -8,7 +8,18 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <section class="auth-screen" id="auth-screen">
+      <div class="auth-card">
+        <span class="brand-mark auth-brand">S</span>
+        <p class="eyebrow">STOCKV2 CLOUD</p>
+        <h1>登入投資組合</h1>
+        <p>使用 Google 帳號登入，安全讀取你在 Firebase 的個人持股資料。</p>
+        <button class="button primary google-sign-in" id="google-sign-in" type="button">使用 Google 帳號登入</button>
+        <small id="auth-message">正在連接 Firebase…</small>
+      </div>
+    </section>
+
+    <div class="app-shell" id="app-shell" hidden>
       <aside class="sidebar">
         <a class="brand" href="/" aria-label="StockV2 首頁">
           <span class="brand-mark">S</span>
@@ -27,9 +38,12 @@
           </a>
         </nav>
 
-        <div class="sidebar-note">
-          <span class="status-dot"></span>
-          <div><strong>資料儲存在本機</strong><small>你的資料不會離開瀏覽器</small></div>
+        <div class="sidebar-account">
+          <div class="sidebar-note">
+            <span class="status-dot" id="firebase-status-dot"></span>
+            <div><strong id="firebase-status">Firebase 連線中</strong><small id="signed-in-email"></small></div>
+          </div>
+          <button class="sign-out-button" id="sign-out" type="button">登出</button>
         </div>
       </aside>
 
@@ -166,6 +180,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite">價格已更新</div>
-    <script src="/app.js" defer></script>
+    <script src="/app.js" type="module"></script>
   </body>
 </html>
