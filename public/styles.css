@@ -131,7 +131,7 @@ tbody tr:hover { background: #fbfcf9; }
 .empty-state { min-width: 1260px; padding: 60px 20px; text-align: center; }
 .empty-state strong, .empty-state span { display: block; }.empty-state span { margin-top: 8px; color: var(--muted); font-size: 12px; }
 
-dialog { width: min(440px, calc(100% - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--surface); box-shadow: 0 28px 90px rgba(24, 36, 30, .22); }
+dialog { width: min(440px, calc(100% - 32px)); max-height: calc(100vh - 32px); padding: 0; overflow-y: auto; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--surface); box-shadow: 0 28px 90px rgba(24, 36, 30, .22); }
 dialog::backdrop { background: rgba(27, 37, 32, .35); backdrop-filter: blur(3px); }
 dialog form { padding: 25px; }
 .dialog-header { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -139,6 +139,7 @@ dialog form { padding: 25px; }
 .icon-button { width: 32px; height: 32px; border: 0; border-radius: 50%; color: var(--muted); background: #f2f3ef; font-size: 20px; }
 .dialog-copy { margin: 15px 0 22px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 13px; }
+.update-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .full-field { grid-column: 1 / -1; }
 .calculated-field { display: flex; align-items: center; justify-content: space-between; min-height: 43px; margin-top: 15px; padding: 0 13px; border: 1px dashed #cad7d0; border-radius: 9px; background: #f7faf8; }
 .calculated-field small { color: var(--muted); font-size: 10px; font-weight: 650; }

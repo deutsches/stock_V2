@@ -159,7 +159,7 @@
           <label>股數<input id="holding-shares" type="number" min="0.0001" step="0.0001" placeholder="0" required /></label>
           <label>持有成本<div class="price-input"><span class="holding-currency">NT$</span><input id="holding-total-cost" type="number" min="0" step="0.01" placeholder="0" required /></div></label>
           <div class="calculated-field full-field"><small>自動計算均價</small><strong id="holding-calculated-average">—</strong></div>
-          <label class="full-field">目前股價<div class="price-input"><span class="holding-currency">NT$</span><input id="holding-price" type="number" min="0" step="0.01" placeholder="0" required /></div></label>
+          <label class="full-field">目前股價<div class="price-input"><span class="holding-currency">NT$</span><input id="holding-price" type="number" min="0" step="any" placeholder="0" required /></div></label>
         </div>
         <p class="form-error" id="holding-form-error" role="alert"></p>
         <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">新增持股</button></div>
@@ -171,10 +171,14 @@
         <div class="dialog-header"><div><p class="eyebrow">MANAGE HOLDING</p><h2>更新持股</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
         <p class="dialog-copy">修改股數、持有成本或最新價格後，系統會立即重新計算所有金額。</p>
         <label>選擇股票<select id="price-symbol" required></select></label>
+        <div class="update-meta-grid">
+          <label>股票代號<input id="update-stock-symbol" type="text" maxlength="16" required /></label>
+          <label>中文顯示名稱<input id="update-stock-name" type="text" maxlength="60" required /></label>
+        </div>
         <label>持有股數<input id="update-shares" type="number" min="0.0001" step="0.0001" required /></label>
         <label>持有成本<div class="price-input"><span id="update-cost-currency">NT$</span><input id="update-total-cost" type="number" min="0" step="0.01" required /></div></label>
         <div class="calculated-field"><small>自動計算均價</small><strong id="update-calculated-average">—</strong></div>
-        <label>最新價格<div class="price-input"><span id="price-currency">NT$</span><input id="new-price" type="number" min="0.01" step="0.01" required /></div></label>
+        <label>最新價格<div class="price-input"><span id="price-currency">NT$</span><input id="new-price" type="number" min="0.01" step="any" required /></div></label>
         <div class="dialog-actions split-actions"><button class="button danger" id="delete-holding" type="button">刪除持股</button><div><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存變更</button></div></div>
       </form>
     </dialog>

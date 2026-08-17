@@ -9,6 +9,7 @@ import {
   signOutUser
 } from "./firebase-service.js";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
+import { sortHoldings } from "./holding-sort.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const USD_TO_TWD = 30.33;
@@ -30,6 +31,8 @@ const elements = {
   dialog: document.querySelector("#price-dialog"),
   form: document.querySelector("#price-form"),
   symbol: document.querySelector("#price-symbol"),
+  updateStockSymbol: document.querySelector("#update-stock-symbol"),
+  updateStockName: document.querySelector("#update-stock-name"),
   updateShares: document.querySelector("#update-shares"),
   updateTotalCost: document.querySelector("#update-total-cost"),
   updateCostCurrency: document.querySelector("#update-cost-currency"),
@@ -80,6 +83,7 @@ function escapeHtml(value) {
 
 function saveHoldings() {
   if (!state.user) return Promise.reject(new Error("尚未登入 Firebase"));
+  state.holdings = sortHoldings(state.holdings);
   return replaceHoldings(state.user.uid, state.holdings);
 }
 
@@ -240,36 +244,48 @@ function syncPriceInput() {
   if (!selected) return;
   elements.currency.textContent = selected.market === "US" ? "US$" : "NT$";
   elements.updateCostCurrency.textContent = selected.market === "US" ? "US$" : "NT$";
+  elements.updateStockSymbol.value = selected.symbol;
+  elements.updateStockName.value = selected.name;
   elements.updateShares.value = selected.shares;
   elements.updateTotalCost.value = selected.shares * selected.averageCost;
   elements.price.value = selected.price;
-  elements.price.step = selected.market === "US" ? "0.01" : "0.1";
+  elements.price.step = "any";
   renderCalculatedAverage(elements.updateShares, elements.updateTotalCost, elements.updateCalculatedAverage, selected.market);
 }
 
 async function savePrice(event) {
   event.preventDefault();
-  const holding = state.holdings.find(item => holdingKey(item) === elements.symbol.value);
+  const holdingIndex = state.holdings.findIndex(item => holdingKey(item) === elements.symbol.value);
+  const holding = state.holdings[holdingIndex];
+  const newSymbol = elements.updateStockSymbol.value.trim().toUpperCase();
+  const newName = elements.updateStockName.value.trim();
   const newShares = Number(elements.updateShares.value);
   const newTotalCost = Number(elements.updateTotalCost.value);
   const newPrice = Number(elements.price.value);
-  if (!holding || !Number.isFinite(newShares) || newShares <= 0 || !Number.isFinite(newTotalCost) || newTotalCost < 0 || !Number.isFinite(newPrice) || newPrice <= 0) return;
+  if (!holding || !newSymbol || !newName || !Number.isFinite(newShares) || newShares <= 0 || !Number.isFinite(newTotalCost) || newTotalCost < 0 || !Number.isFinite(newPrice) || newPrice <= 0) return;
+  if (state.holdings.some((item, index) => index !== holdingIndex && item.market === holding.market && item.symbol === newSymbol)) {
+    showToast(`儲存失敗：${newSymbol} 已存在於目前持股`);
+    return;
+  }
 
-  const previousHolding = { ...holding };
+  const previousHoldings = state.holdings.map(item => ({ ...item }));
+  holding.symbol = newSymbol;
+  holding.name = newName;
   holding.shares = newShares;
   holding.averageCost = newTotalCost / newShares;
   if (newPrice !== holding.price) holding.previousClose = holding.price;
   holding.price = newPrice;
+  state.holdings = sortHoldings(state.holdings);
   try {
     await saveHoldings();
   } catch (error) {
-    Object.assign(holding, previousHolding);
+    state.holdings = previousHoldings;
     showToast(`儲存失敗：${friendlyFirebaseError(error)}`);
     return;
   }
   elements.dialog.close();
   render();
-  showToast(`${holding.name} 的股數與價格已更新`);
+  showToast(`${holding.name} 的持股資料已更新`);
 }
 
 function openHoldingDialog() {
@@ -320,11 +336,12 @@ async function addHolding(event) {
     return;
   }
 
+  const previousHoldings = state.holdings.map(item => ({ ...item }));
   state.holdings.push(newHolding);
   try {
     await saveHoldings();
   } catch (error) {
-    state.holdings.pop();
+    state.holdings = previousHoldings;
     elements.holdingFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
     return;
   }
@@ -469,7 +486,7 @@ observeAuthentication(user => {
       if (holdings.length === 0 && localHoldings.length > 0 && !migrationDismissed) {
         const shouldMigrate = window.confirm(`發現瀏覽器中有 ${localHoldings.length} 檔持股，是否搬移到 Firebase？`);
         if (shouldMigrate) {
-          state.holdings = localHoldings;
+          state.holdings = sortHoldings(localHoldings);
           try {
             await saveHoldings();
             localStorage.removeItem(STORAGE_KEY);
@@ -484,7 +501,7 @@ observeAuthentication(user => {
         }
       }
     }
-    state.holdings = holdings;
+    state.holdings = sortHoldings(holdings);
     render();
     checkAssetSnapshot();
   }, error => {
