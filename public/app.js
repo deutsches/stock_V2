@@ -108,13 +108,13 @@ function renderHoldings() {
     const marketName = item.market === "TW" ? "台股" : "美股";
     return `
       <tr>
-        <td><div class="stock-cell"><span class="stock-mark ${item.market === "US" ? "us" : ""}">${item.symbol.slice(0, 2)}</span><span class="stock-name"><strong>${item.name}</strong><small>${item.symbol} · ${marketName}</small></span></div></td>
+        <td><div class="stock-cell"><span class="stock-name"><strong>${item.name}</strong><small>${item.symbol} · ${marketName}</small></span></div></td>
         <td><span class="number-main">${item.shares.toLocaleString()}</span><span class="number-sub">股</span></td>
         <td><span class="number-main">${money(item.averageCost, item.market)}</span></td>
         <td><span class="number-main">${money(item.price, item.market)}</span><span class="number-sub">前收 ${money(item.previousClose, item.market)}</span></td>
         <td><span class="number-main">${money(value, item.market)}</span>${item.market === "US" ? `<span class="number-sub">約 ${money(inTwd(value, "US"))}</span>` : ""}</td>
         <td><span class="profit-pill ${profit >= 0 ? "positive" : "negative"}"><strong>${money(profit, item.market, true)}</strong><small>${percent(rate)}</small></span></td>
-        <td><button class="row-action" data-update-symbol="${item.symbol}" aria-label="更新 ${item.name} 價格">•••</button></td>
+        <td><button class="row-action" data-update-symbol="${item.symbol}" aria-label="更新 ${item.name} 價格" title="更新價格">⋯</button></td>
       </tr>`;
   }).join("");
 
