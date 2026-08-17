@@ -30,3 +30,11 @@ npm start
 接著開啟 `http://localhost:3000`。Google 登入需要將 `localhost` 加入 Firebase Authentication 的 Authorized domains。
 
 Firebase 設定與安全規則注意事項請參考 [`docs/firebase-setup.md`](docs/firebase-setup.md)。
+
+## GitHub Pages
+
+網站會在 `main` 更新後自動部署至：
+
+<https://deutsches.github.io/stock_V2/>
+
+首次部署前，請在 GitHub repository 的 `Settings → Pages → Build and deployment` 將 Source 設為 `GitHub Actions`，並在 Firebase Authentication 的 Authorized domains 加入 `deutsches.github.io`。
