@@ -59,6 +59,23 @@ export function observeHoldings(uid, onData, onError) {
   }, onError);
 }
 
+export function observeCashBalances(uid, onData, onError) {
+  return onValue(ref(database, userPath(uid, "cash")), snapshot => {
+    const value = snapshot.val();
+    onData({
+      twd: Number(value?.twd) || 0,
+      usd: Number(value?.usd) || 0,
+      updatedAt: Number(value?.updatedAt) || null
+    });
+  }, onError);
+}
+
+export function observeSnapshots(uid, onData, onError) {
+  return onValue(ref(database, userPath(uid, "snapshots")), snapshot => {
+    onData(snapshot.val());
+  }, onError);
+}
+
 export function replaceHoldings(uid, holdings) {
   const records = holdings.reduce((result, holding) => {
     result[firebaseHoldingKey(holding)] = {
@@ -75,6 +92,14 @@ export function replaceHoldings(uid, holdings) {
   return set(ref(database, userPath(uid, "holdings")), Object.keys(records).length ? records : null);
 }
 
+export function saveCashBalances(uid, cash) {
+  return set(ref(database, userPath(uid, "cash")), {
+    twd: cash.twd,
+    usd: cash.usd,
+    updatedAt: serverTimestamp()
+  });
+}
+
 export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {
   const snapshotRef = ref(database, userPath(uid, `snapshots/${snapshotId}`));
   const result = await runTransaction(snapshotRef, currentValue => {
@@ -82,4 +107,11 @@ export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {
     return { ...snapshot, createdAt: serverTimestamp() };
   }, { applyLocally: false });
   return result.committed;
+}
+
+export function replaceSnapshot(uid, snapshotId, snapshot) {
+  return set(ref(database, userPath(uid, `snapshots/${snapshotId}`)), {
+    ...snapshot,
+    createdAt: serverTimestamp()
+  });
 }

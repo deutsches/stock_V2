@@ -1,15 +1,22 @@
 import {
   createSnapshotIfMissing,
   observeAuthentication,
+  observeCashBalances,
   observeConnection,
   observeHoldings,
+  observeSnapshots,
   observeServerTimeOffset,
   replaceHoldings,
+  replaceSnapshot,
+  saveCashBalances,
   signInWithGoogle,
   signOutUser
 } from "./firebase-service.js";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 import { sortHoldings } from "./holding-sort.js";
+import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js";
+import { createHistoryDemoSnapshots } from "./history-demo-data.js";
+import { routeFromHash, titleForRoute } from "./router.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const USD_TO_TWD = 30.33;
@@ -17,11 +24,19 @@ const USD_TO_TWD = 30.33;
 const state = {
   market: "ALL",
   holdings: [],
+  cash: { twd: 0, usd: 0 },
   user: null,
   unsubscribeHoldings: null,
+  unsubscribeCash: null,
+  unsubscribeSnapshots: null,
+  snapshots: [],
+  historyRange: "7",
+  historyDemo: false,
   firebaseLoaded: false,
+  cashLoaded: false,
   serverTimeOffset: 0,
-  snapshotCheckInFlight: false
+  snapshotCheckInFlight: false,
+  snapshotReplacePending: false
 };
 
 const elements = {
@@ -55,6 +70,20 @@ const elements = {
   firebaseStatus: document.querySelector("#firebase-status"),
   firebaseStatusDot: document.querySelector("#firebase-status-dot"),
   signedInEmail: document.querySelector("#signed-in-email"),
+  cashDialog: document.querySelector("#cash-dialog"),
+  cashForm: document.querySelector("#cash-form"),
+  cashTwd: document.querySelector("#cash-twd"),
+  cashUsd: document.querySelector("#cash-usd"),
+  cashTotalPreview: document.querySelector("#cash-total-preview"),
+  cashFormError: document.querySelector("#cash-form-error"),
+  historyChart: document.querySelector("#history-chart"),
+  historyChartWrap: document.querySelector("#history-chart-wrap"),
+  historyEmpty: document.querySelector("#history-empty"),
+  historySummary: document.querySelector("#history-summary"),
+  historyDemoToggle: document.querySelector("#history-demo-toggle"),
+  historyDemoNotice: document.querySelector("#history-demo-notice"),
+  historyRecordsBody: document.querySelector("#history-records-body"),
+  historyRecordCount: document.querySelector("#history-record-count"),
   toast: document.querySelector("#toast")
 };
 
@@ -91,6 +120,10 @@ function inTwd(value, market) {
   return market === "US" ? value * USD_TO_TWD : value;
 }
 
+function cashTotalTwd() {
+  return state.cash.twd + state.cash.usd * USD_TO_TWD;
+}
+
 function money(value, market = "TW", includeSign = false) {
   const locale = market === "US" ? "en-US" : "zh-TW";
   const currency = market === "US" ? "USD" : "TWD";
@@ -113,7 +146,7 @@ function number(value, maximumFractionDigits = 2) {
 }
 
 function totals() {
-  return state.holdings.reduce((result, item) => {
+  const total = state.holdings.reduce((result, item) => {
     const marketValue = inTwd(item.shares * item.price, item.market);
     const cost = inTwd(item.shares * item.averageCost, item.market);
     const previous = inTwd(item.shares * item.previousClose, item.market);
@@ -123,6 +156,9 @@ function totals() {
     result[item.market] += marketValue;
     return result;
   }, { value: 0, cost: 0, previous: 0, TW: 0, US: 0 });
+  total.cash = cashTotalTwd();
+  total.assets = total.value + total.cash;
+  return total;
 }
 
 function marketTotals(market) {
@@ -142,10 +178,12 @@ function renderSummary() {
   const profitRate = total.cost ? (profit / total.cost) * 100 : 0;
   const change = total.value - total.previous;
   const changeRate = total.previous ? (change / total.previous) * 100 : 0;
-  const twPercent = total.value ? (total.TW / total.value) * 100 : 0;
-  const usPercent = 100 - twPercent;
+  const twPercent = total.assets ? (total.TW / total.assets) * 100 : 0;
+  const usPercent = total.assets ? (total.US / total.assets) * 100 : 0;
+  const cashPercent = total.assets ? (total.cash / total.assets) * 100 : 0;
 
-  document.querySelector("#total-assets").textContent = money(total.value);
+  document.querySelector("#total-assets").textContent = money(total.assets);
+  document.querySelector("#current-cash").textContent = money(total.cash);
   document.querySelector("#total-cost").textContent = money(total.cost);
   setSignedMetric("#unrealized-profit", profit, "TW");
   document.querySelector("#unrealized-rate").textContent = `報酬率 ${percent(profitRate)}`;
@@ -155,8 +193,10 @@ function renderSummary() {
   document.querySelector("#total-change").textContent = `今日 ${money(change, "TW", true)}（${percent(changeRate)}）`;
   document.querySelector("#tw-allocation").style.width = `${twPercent}%`;
   document.querySelector("#us-allocation").style.width = `${usPercent}%`;
+  document.querySelector("#cash-allocation").style.width = `${cashPercent}%`;
   document.querySelector("#tw-percent").textContent = `${twPercent.toFixed(0)}%`;
   document.querySelector("#us-percent").textContent = `${usPercent.toFixed(0)}%`;
+  document.querySelector("#cash-percent").textContent = `${cashPercent.toFixed(0)}%`;
   renderMarketSummary("TW", marketTotals("TW"));
   renderMarketSummary("US", marketTotals("US"));
 }
@@ -231,6 +271,119 @@ function render() {
   renderHoldings();
 }
 
+function renderRoute() {
+  const route = routeFromHash(window.location.hash);
+  document.querySelectorAll("[data-route-page]").forEach(page => {
+    page.hidden = page.dataset.routePage !== route;
+  });
+  document.querySelectorAll("[data-route-link]").forEach(link => {
+    const isActive = link.dataset.routeLink === route;
+    link.classList.toggle("active", isActive);
+    if (isActive) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  document.title = titleForRoute(route);
+}
+
+function shortMoney(value) {
+  return new Intl.NumberFormat("zh-TW", {
+    style: "currency",
+    currency: "TWD",
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(value);
+}
+
+function snapshotLabel(snapshot) {
+  const [, month, day] = snapshot.localDate.split("-");
+  return `${month}/${day} ${snapshot.slot === "0630" ? "06:30" : "14:30"}`;
+}
+
+const historyDemoSnapshots = createHistoryDemoSnapshots();
+
+function renderHistoryStats(snapshots) {
+  const stats = calculateHistoryStats(snapshots);
+  const fields = ["history-latest", "history-period-change", "history-highest", "history-drawdown"];
+  if (!stats) {
+    fields.forEach(id => { document.querySelector(`#${id}`).textContent = "—"; });
+    document.querySelector("#history-latest-date").textContent = "尚無資料";
+    document.querySelector("#history-period-rate").textContent = "—";
+    document.querySelector("#history-highest-date").textContent = "—";
+    document.querySelector("#history-drawdown-rate").textContent = "—";
+    return;
+  }
+  document.querySelector("#history-latest").textContent = money(stats.latest.totalAssetsTwd);
+  document.querySelector("#history-latest-date").textContent = snapshotLabel(stats.latest);
+  const changeNode = document.querySelector("#history-period-change");
+  changeNode.textContent = money(stats.change, "TW", true);
+  changeNode.className = stats.change >= 0 ? "positive" : "negative";
+  document.querySelector("#history-period-rate").textContent = percent(stats.changeRate);
+  document.querySelector("#history-highest").textContent = money(stats.highest.totalAssetsTwd);
+  document.querySelector("#history-highest-date").textContent = snapshotLabel(stats.highest);
+  document.querySelector("#history-drawdown").textContent = money(-stats.maxDrawdown, "TW", true);
+  document.querySelector("#history-drawdown-rate").textContent = `−${stats.maxDrawdownRate.toFixed(2)}%`;
+}
+
+function renderHistoryRecords(snapshots) {
+  elements.historyRecordCount.textContent = `${snapshots.length} 筆紀錄`;
+  elements.historyRecordsBody.innerHTML = snapshots.slice().reverse().map((snapshot, index, reversed) => {
+    const previous = reversed[index + 1];
+    const change = previous ? snapshot.totalAssetsTwd - previous.totalAssetsTwd : 0;
+    return `<tr>
+      <td>${snapshotLabel(snapshot)}</td>
+      <td>${money(snapshot.totalAssetsTwd)}</td>
+      <td>${money(snapshot.marketValueTwd)}</td>
+      <td>${money(snapshot.cashTwd)}</td>
+      <td class="${change >= 0 ? "positive" : "negative"}">${previous ? money(change, "TW", true) : "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderHistoryChart() {
+  const source = state.historyDemo ? historyDemoSnapshots : state.snapshots;
+  const snapshots = filterSnapshotsByRange(source, state.historyRange);
+  const model = buildHistoryChartModel(snapshots);
+  renderHistoryStats(snapshots);
+  renderHistoryRecords(snapshots);
+  elements.historyChartWrap.hidden = !model;
+  elements.historyEmpty.hidden = Boolean(model);
+
+  if (!model) {
+    elements.historySummary.textContent = "等待歷史快照資料";
+    elements.historyChart.innerHTML = "";
+    return;
+  }
+
+  const first = snapshots[0];
+  const latest = snapshots.at(-1);
+  const change = latest.totalAssetsTwd - first.totalAssetsTwd;
+  const changeRate = first.totalAssetsTwd ? (change / first.totalAssetsTwd) * 100 : 0;
+  elements.historySummary.innerHTML = `最新 ${money(latest.totalAssetsTwd)} <span class="${change >= 0 ? "positive" : "negative"}">${money(change, "TW", true)}（${percent(changeRate)}）</span> · ${snapshots.length} 筆快照`;
+
+  const grid = model.yTicks.map(tick => `
+    <line class="chart-grid-line" x1="${model.bounds.left}" y1="${tick.y}" x2="${model.width - model.bounds.right}" y2="${tick.y}"></line>
+    <text class="chart-axis-label chart-y-label" x="${model.bounds.left - 14}" y="${tick.y + 4}">${shortMoney(tick.value)}</text>
+  `).join("");
+  const labels = model.xLabels.map(point => `
+    <text class="chart-axis-label" x="${point.x}" y="${model.height - 13}" text-anchor="middle">${snapshotLabel(point)}</text>
+  `).join("");
+  const points = model.points.map(point => `
+    <circle class="chart-point" cx="${point.x}" cy="${point.assetsY}" r="4" tabindex="0">
+      <title>${snapshotLabel(point)}｜總資產 ${money(point.totalAssetsTwd)}｜持股 ${money(point.marketValueTwd)}｜現金 ${money(point.cashTwd)}</title>
+    </circle>
+  `).join("");
+
+  elements.historyChart.innerHTML = `
+    <title id="history-chart-title">資產歷史曲線圖</title>
+    <desc id="history-chart-description">${snapshotLabel(first)} 到 ${snapshotLabel(latest)}，共 ${snapshots.length} 筆資產快照</desc>
+    ${grid}
+    ${labels}
+    <path class="chart-line chart-holdings-line" d="${model.holdingsPath}"></path>
+    <path class="chart-line chart-value-line" d="${model.assetsPath}"></path>
+    ${points}
+  `;
+}
+
 function openPriceDialog(key = state.holdings[0] ? holdingKey(state.holdings[0]) : "") {
   elements.symbol.innerHTML = state.holdings.map(item => `<option value="${escapeHtml(holdingKey(item))}">${escapeHtml(item.symbol)} · ${escapeHtml(item.name)}</option>`).join("");
   elements.symbol.value = key;
@@ -278,6 +431,7 @@ async function savePrice(event) {
   state.holdings = sortHoldings(state.holdings);
   try {
     await saveHoldings();
+    await checkAssetSnapshot(true);
   } catch (error) {
     state.holdings = previousHoldings;
     showToast(`儲存失敗：${friendlyFirebaseError(error)}`);
@@ -316,6 +470,47 @@ function renderCalculatedAverage(sharesInput, costInput, output, market) {
   output.textContent = `${market === "US" ? "US$" : "NT$"}${number(totalCost / shares)}`;
 }
 
+function renderCashPreview() {
+  const twd = Number(elements.cashTwd.value);
+  const usd = Number(elements.cashUsd.value);
+  const total = (Number.isFinite(twd) ? twd : 0) + (Number.isFinite(usd) ? usd : 0) * USD_TO_TWD;
+  elements.cashTotalPreview.textContent = money(total);
+}
+
+function openCashDialog() {
+  elements.cashTwd.value = state.cash.twd;
+  elements.cashUsd.value = state.cash.usd;
+  elements.cashFormError.textContent = "";
+  renderCashPreview();
+  elements.cashDialog.showModal();
+  setTimeout(() => elements.cashTwd.focus(), 50);
+}
+
+async function saveCash(event) {
+  event.preventDefault();
+  const twd = Number(elements.cashTwd.value);
+  const usd = Number(elements.cashUsd.value);
+  if (![twd, usd].every(Number.isFinite) || twd < 0 || usd < 0) {
+    elements.cashFormError.textContent = "請輸入大於或等於 0 的現金金額。";
+    return;
+  }
+
+  const previousCash = { ...state.cash };
+  state.cash = { twd, usd };
+  renderSummary();
+  try {
+    await saveCashBalances(state.user.uid, state.cash);
+    await checkAssetSnapshot(true);
+  } catch (error) {
+    state.cash = previousCash;
+    renderSummary();
+    elements.cashFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
+    return;
+  }
+  elements.cashDialog.close();
+  showToast(`現金已更新為 ${money(cashTotalTwd())}`);
+}
+
 async function addHolding(event) {
   event.preventDefault();
   const market = elements.holdingMarket.value;
@@ -340,6 +535,7 @@ async function addHolding(event) {
   state.holdings.push(newHolding);
   try {
     await saveHoldings();
+    await checkAssetSnapshot(true);
   } catch (error) {
     state.holdings = previousHoldings;
     elements.holdingFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
@@ -358,6 +554,7 @@ async function deleteHolding() {
   state.holdings.splice(index, 1);
   try {
     await saveHoldings();
+    await checkAssetSnapshot(true);
   } catch (error) {
     state.holdings.splice(index, 0, holding);
     showToast(`刪除失敗：${friendlyFirebaseError(error)}`);
@@ -385,20 +582,32 @@ function friendlyFirebaseError(error) {
   return error?.message || "未知錯誤";
 }
 
-async function checkAssetSnapshot() {
-  if (!state.user || !state.firebaseLoaded || state.holdings.length === 0 || state.snapshotCheckInFlight) return;
+async function checkAssetSnapshot(replaceExisting = false) {
+  if (!state.user || !state.firebaseLoaded || !state.cashLoaded) return;
+  if (state.snapshotCheckInFlight) {
+    if (replaceExisting) state.snapshotReplacePending = true;
+    return;
+  }
   const slot = getCurrentSnapshotSlot(new Date(), state.serverTimeOffset);
   if (!slot) return;
 
   state.snapshotCheckInFlight = true;
   try {
-    const snapshot = buildAssetSnapshot(state.holdings, USD_TO_TWD, slot);
-    const created = await createSnapshotIfMissing(state.user.uid, slot.id, snapshot);
-    if (created) showToast(`已建立 ${slot.slot === "0630" ? "06:30" : "14:30"} 資產快照`);
+    const snapshot = buildAssetSnapshot(state.holdings, USD_TO_TWD, slot, state.cash);
+    if (replaceExisting) {
+      await replaceSnapshot(state.user.uid, slot.id, snapshot);
+    } else {
+      const created = await createSnapshotIfMissing(state.user.uid, slot.id, snapshot);
+      if (created) showToast("已建立 14:30 每日總資產快照");
+    }
   } catch (error) {
     showToast(`快照建立失敗：${friendlyFirebaseError(error)}`);
   } finally {
     state.snapshotCheckInFlight = false;
+    if (state.snapshotReplacePending) {
+      state.snapshotReplacePending = false;
+      checkAssetSnapshot(true);
+    }
   }
 }
 
@@ -415,7 +624,11 @@ document.querySelectorAll("[data-close-dialog]").forEach(button => {
   button.addEventListener("click", () => button.closest("dialog").close());
 });
 document.querySelector("#open-holding-dialog").addEventListener("click", openHoldingDialog);
+document.querySelector("#open-cash-dialog").addEventListener("click", openCashDialog);
 document.querySelector("#delete-holding").addEventListener("click", deleteHolding);
+elements.cashTwd.addEventListener("input", renderCashPreview);
+elements.cashUsd.addEventListener("input", renderCashPreview);
+elements.cashForm.addEventListener("submit", saveCash);
 elements.holdingMarket.addEventListener("change", syncHoldingCurrency);
 elements.holdingShares.addEventListener("input", syncHoldingCurrency);
 elements.holdingTotalCost.addEventListener("input", syncHoldingCurrency);
@@ -434,6 +647,25 @@ elements.body.addEventListener("click", event => {
   const button = event.target.closest("[data-update-key]");
   if (button) openPriceDialog(button.dataset.updateKey);
 });
+document.querySelectorAll("[data-history-range]").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-history-range]").forEach(item => item.classList.remove("active"));
+    button.classList.add("active");
+    state.historyRange = button.dataset.historyRange;
+    renderHistoryChart();
+  });
+});
+elements.historyDemoToggle.addEventListener("click", () => {
+  state.historyDemo = !state.historyDemo;
+  elements.historyDemoNotice.hidden = !state.historyDemo;
+  elements.historyDemoToggle.textContent = state.historyDemo ? "返回真實資料" : "預覽範例資料";
+  renderHistoryChart();
+});
+window.addEventListener("hashchange", () => {
+  renderRoute();
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
+renderRoute();
 
 document.querySelector("#google-sign-in").addEventListener("click", async () => {
   elements.authMessage.textContent = "正在開啟 Google 登入視窗…";
@@ -463,12 +695,20 @@ observeServerTimeOffset(offset => {
 
 observeAuthentication(user => {
   state.unsubscribeHoldings?.();
+  state.unsubscribeCash?.();
+  state.unsubscribeSnapshots?.();
   state.unsubscribeHoldings = null;
+  state.unsubscribeCash = null;
+  state.unsubscribeSnapshots = null;
   state.user = user;
   state.firebaseLoaded = false;
+  state.cashLoaded = false;
 
   if (!user) {
     state.holdings = [];
+    state.cash = { twd: 0, usd: 0 };
+    state.snapshots = [];
+    renderHistoryChart();
     elements.appShell.hidden = true;
     elements.authScreen.hidden = false;
     elements.authMessage.textContent = "請使用已啟用的 Google 帳號登入";
@@ -478,6 +718,25 @@ observeAuthentication(user => {
   elements.authScreen.hidden = true;
   elements.appShell.hidden = false;
   elements.signedInEmail.textContent = user.email || "已登入";
+  state.unsubscribeCash = observeCashBalances(user.uid, cash => {
+    state.cash = cash;
+    state.cashLoaded = true;
+    renderSummary();
+    checkAssetSnapshot();
+  }, error => {
+    state.cash = { twd: 0, usd: 0 };
+    state.cashLoaded = true;
+    renderSummary();
+    showToast(`現金讀取失敗：${friendlyFirebaseError(error)}`);
+  });
+  state.unsubscribeSnapshots = observeSnapshots(user.uid, records => {
+    state.snapshots = normalizeSnapshots(records);
+    renderHistoryChart();
+  }, error => {
+    state.snapshots = [];
+    renderHistoryChart();
+    showToast(`歷史資料讀取失敗：${friendlyFirebaseError(error)}`);
+  });
   state.unsubscribeHoldings = observeHoldings(user.uid, async holdings => {
     if (!state.firebaseLoaded) {
       state.firebaseLoaded = true;
@@ -512,8 +771,8 @@ observeAuthentication(user => {
 });
 
 setInterval(checkAssetSnapshot, 5 * 60 * 1000);
-window.addEventListener("focus", checkAssetSnapshot);
-window.addEventListener("online", checkAssetSnapshot);
+window.addEventListener("focus", () => checkAssetSnapshot());
+window.addEventListener("online", () => checkAssetSnapshot());
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") checkAssetSnapshot();
 });

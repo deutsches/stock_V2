@@ -26,21 +26,28 @@ export function getCurrentSnapshotSlot(now = new Date(), serverTimeOffsetMs = 0)
   const adjustedDate = new Date(now.getTime() + serverTimeOffsetMs);
   const parts = taipeiParts(adjustedDate);
   const minutes = Number(parts.hour) * 60 + Number(parts.minute);
-  if (minutes < 6 * 60 + 30) return null;
+  if (minutes < 14 * 60 + 30) return null;
 
   const date = `${parts.year}-${parts.month}-${parts.day}`;
-  const slot = minutes < 14 * 60 + 30 ? "0630" : "1430";
+  const slot = "1430";
   return { id: `${date}_${slot}`, date, slot };
 }
 
-export function buildAssetSnapshot(holdings, exchangeRate, slot) {
+export function buildAssetSnapshot(holdings, exchangeRate, slot, cash = { twd: 0, usd: 0 }) {
+  const cashTwd = (Number(cash.twd) || 0) + (Number(cash.usd) || 0) * exchangeRate;
   const snapshot = {
     slot: slot.slot,
     localDate: slot.date,
     exchangeRate,
     holdingCount: holdings.length,
+    cash: {
+      twd: Number(cash.twd) || 0,
+      usd: Number(cash.usd) || 0,
+      totalTwd: round(cashTwd)
+    },
     total: {
       marketValueTwd: 0,
+      totalAssetsTwd: 0,
       costTwd: 0,
       unrealizedProfitTwd: 0,
       dailyChangeTwd: 0
@@ -68,6 +75,7 @@ export function buildAssetSnapshot(holdings, exchangeRate, slot) {
   }
 
   snapshot.total.unrealizedProfitTwd = snapshot.total.marketValueTwd - snapshot.total.costTwd;
+  snapshot.total.totalAssetsTwd = snapshot.total.marketValueTwd + cashTwd;
   for (const key of Object.keys(snapshot.total)) snapshot.total[key] = round(snapshot.total[key]);
   for (const market of Object.values(snapshot.markets)) {
     for (const key of ["marketValue", "cost", "profit"]) market[key] = round(market[key]);

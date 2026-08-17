@@ -21,20 +21,20 @@
 
     <div class="app-shell" id="app-shell" hidden>
       <aside class="sidebar">
-        <a class="brand" href="./" aria-label="StockV2 首頁">
+        <a class="brand" href="#/" aria-label="StockV2 首頁">
           <span class="brand-mark">S</span>
           <span>StockV2</span>
         </a>
 
         <nav class="main-nav" aria-label="主要選單">
-          <a class="nav-item active" href="#">
+          <a class="nav-item active" href="#/" data-route-link="dashboard">
             <span class="nav-icon">◫</span><span>投資總覽</span>
           </a>
           <a class="nav-item disabled" href="#" aria-disabled="true">
             <span class="nav-icon">↕</span><span>交易紀錄</span><small>即將推出</small>
           </a>
-          <a class="nav-item disabled" href="#" aria-disabled="true">
-            <span class="nav-icon">◷</span><span>資產歷史</span><small>即將推出</small>
+          <a class="nav-item" href="#/history" data-route-link="history">
+            <span class="nav-icon">◷</span><span>資產歷史</span>
           </a>
         </nav>
 
@@ -48,11 +48,16 @@
       </aside>
 
       <main class="main-content">
+        <div class="route-page" data-route-page="dashboard">
         <header class="page-header">
           <div>
             <p class="eyebrow">PORTFOLIO OVERVIEW</p>
             <h1>投資總覽</h1>
             <p class="subtitle">這是你目前的投資組合狀況。</p>
+          </div>
+          <div class="page-actions">
+            <div class="cash-balance"><small>可用現金</small><strong id="current-cash">NT$0</strong></div>
+            <button class="button secondary" id="open-cash-dialog" type="button">設定現金</button>
           </div>
         </header>
 
@@ -61,8 +66,8 @@
             <div class="card-label"><span>總資產</span><span class="currency-pill">TWD</span></div>
             <strong class="metric" id="total-assets">NT$0</strong>
             <div class="metric-change" id="total-change"></div>
-            <div class="allocation-bar" aria-label="台股與美股資產比例"><span id="tw-allocation"></span><span id="us-allocation"></span></div>
-            <div class="allocation-legend"><span><i class="tw-dot"></i>台股 <b id="tw-percent">0%</b></span><span><i class="us-dot"></i>美股 <b id="us-percent">0%</b></span></div>
+            <div class="allocation-bar" aria-label="台股、美股與現金資產比例"><span id="tw-allocation"></span><span id="us-allocation"></span><span id="cash-allocation"></span></div>
+            <div class="allocation-legend"><span><i class="tw-dot"></i>台股 <b id="tw-percent">0%</b></span><span><i class="us-dot"></i>美股 <b id="us-percent">0%</b></span><span><i class="cash-dot"></i>現金 <b id="cash-percent">0%</b></span></div>
           </article>
 
           <article class="summary-card">
@@ -145,6 +150,66 @@
           </div>
           <p class="table-note">美股的換台幣成本目前統一依匯率 1 USD = NT$30.33 計算。</p>
         </section>
+        </div>
+
+        <div class="route-page history-page" data-route-page="history" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">ASSET HISTORY</p>
+              <h1>資產歷史</h1>
+              <p class="subtitle">查看持股市值加上現金後的總資產變化。</p>
+            </div>
+            <button class="button secondary" id="history-demo-toggle" type="button">預覽範例資料</button>
+          </header>
+
+          <div class="demo-notice" id="history-demo-notice" hidden><strong>範例模式</strong> 目前顯示模擬資料，內容不會寫入 Firebase。</div>
+
+          <section class="history-stats" aria-label="歷史區間摘要">
+            <article><small>最新總資產</small><strong id="history-latest">—</strong><span id="history-latest-date">尚無資料</span></article>
+            <article><small>區間增減</small><strong id="history-period-change">—</strong><span id="history-period-rate">—</span></article>
+            <article><small>區間最高</small><strong id="history-highest">—</strong><span id="history-highest-date">—</span></article>
+            <article><small>最大回落</small><strong id="history-drawdown">—</strong><span id="history-drawdown-rate">—</span></article>
+          </section>
+
+          <section class="history-section" aria-labelledby="history-title">
+            <div class="history-heading">
+              <div>
+                <p class="eyebrow">PORTFOLIO TREND</p>
+                <h2 id="history-title">資產走勢</h2>
+                <p id="history-summary">等待歷史快照資料</p>
+              </div>
+              <div class="history-ranges" role="group" aria-label="歷史資料範圍">
+                <button class="history-range active" type="button" data-history-range="7">7 天</button>
+                <button class="history-range" type="button" data-history-range="30">30 天</button>
+                <button class="history-range" type="button" data-history-range="ALL">全部</button>
+              </div>
+            </div>
+            <div class="history-legend" aria-hidden="true">
+              <span><i class="history-value-dot"></i>總資產</span>
+              <span><i class="history-holdings-dot"></i>持股市值</span>
+            </div>
+            <div class="history-chart-wrap" id="history-chart-wrap" hidden>
+              <svg id="history-chart" class="history-chart" viewBox="0 0 1000 320" role="img" aria-labelledby="history-chart-title history-chart-description">
+                <title id="history-chart-title">資產歷史曲線圖</title>
+                <desc id="history-chart-description">比較各資產快照的總資產與持股市值</desc>
+              </svg>
+            </div>
+            <div class="history-empty" id="history-empty">
+              <strong>尚無可繪製的歷史資料</strong>
+              <span>系統每日 14:30 建立一筆收盤快照；累積後會自動顯示曲線。</span>
+            </div>
+          </section>
+
+          <section class="history-records">
+            <div class="section-heading"><div><h2>快照明細</h2><p id="history-record-count">0 筆紀錄</p></div></div>
+            <div class="table-wrap">
+              <table class="history-table">
+                <thead><tr><th>日期與時段</th><th>總資產</th><th>持股市值</th><th>現金</th><th>較前次變化</th></tr></thead>
+                <tbody id="history-records-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
 
@@ -180,6 +245,18 @@
         <div class="calculated-field"><small>自動計算均價</small><strong id="update-calculated-average">—</strong></div>
         <label>最新價格<div class="price-input"><span id="price-currency">NT$</span><input id="new-price" type="number" min="0.01" step="any" required /></div></label>
         <div class="dialog-actions split-actions"><button class="button danger" id="delete-holding" type="button">刪除持股</button><div><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存變更</button></div></div>
+      </form>
+    </dialog>
+
+    <dialog id="cash-dialog">
+      <form method="dialog" id="cash-form">
+        <div class="dialog-header"><div><p class="eyebrow">CASH BALANCE</p><h2>設定可用現金</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <p class="dialog-copy">分別輸入台幣與美元現金。美元會依目前匯率換算，並與持股市值合計為總資產。</p>
+        <label>台幣現金<div class="price-input"><span>NT$</span><input id="cash-twd" type="number" min="0" step="any" value="0" required /></div></label>
+        <label>美元現金<div class="price-input"><span>US$</span><input id="cash-usd" type="number" min="0" step="any" value="0" required /></div></label>
+        <div class="calculated-field"><small>換算後現金合計</small><strong id="cash-total-preview">NT$0</strong></div>
+        <p class="form-error" id="cash-form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存現金</button></div>
       </form>
     </dialog>
 
