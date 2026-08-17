@@ -10,6 +10,8 @@ import {
   getDatabase,
   onValue,
   ref,
+  runTransaction,
+  serverTimestamp,
   set
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
@@ -46,6 +48,10 @@ export function observeConnection(callback) {
   return onValue(ref(database, ".info/connected"), snapshot => callback(snapshot.val() === true));
 }
 
+export function observeServerTimeOffset(callback) {
+  return onValue(ref(database, ".info/serverTimeOffset"), snapshot => callback(Number(snapshot.val()) || 0));
+}
+
 export function observeHoldings(uid, onData, onError) {
   return onValue(ref(database, userPath(uid, "holdings")), snapshot => {
     const value = snapshot.val();
@@ -67,4 +73,13 @@ export function replaceHoldings(uid, holdings) {
     return result;
   }, {});
   return set(ref(database, userPath(uid, "holdings")), Object.keys(records).length ? records : null);
+}
+
+export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {
+  const snapshotRef = ref(database, userPath(uid, `snapshots/${snapshotId}`));
+  const result = await runTransaction(snapshotRef, currentValue => {
+    if (currentValue !== null) return;
+    return { ...snapshot, createdAt: serverTimestamp() };
+  }, { applyLocally: false });
+  return result.committed;
 }

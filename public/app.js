@@ -1,11 +1,14 @@
 import {
+  createSnapshotIfMissing,
   observeAuthentication,
   observeConnection,
   observeHoldings,
+  observeServerTimeOffset,
   replaceHoldings,
   signInWithGoogle,
   signOutUser
 } from "./firebase-service.js";
+import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const USD_TO_TWD = 30.33;
@@ -15,7 +18,9 @@ const state = {
   holdings: [],
   user: null,
   unsubscribeHoldings: null,
-  firebaseLoaded: false
+  firebaseLoaded: false,
+  serverTimeOffset: 0,
+  snapshotCheckInFlight: false
 };
 
 const elements = {
@@ -363,6 +368,23 @@ function friendlyFirebaseError(error) {
   return error?.message || "未知錯誤";
 }
 
+async function checkAssetSnapshot() {
+  if (!state.user || !state.firebaseLoaded || state.holdings.length === 0 || state.snapshotCheckInFlight) return;
+  const slot = getCurrentSnapshotSlot(new Date(), state.serverTimeOffset);
+  if (!slot) return;
+
+  state.snapshotCheckInFlight = true;
+  try {
+    const snapshot = buildAssetSnapshot(state.holdings, USD_TO_TWD, slot);
+    const created = await createSnapshotIfMissing(state.user.uid, slot.id, snapshot);
+    if (created) showToast(`已建立 ${slot.slot === "0630" ? "06:30" : "14:30"} 資產快照`);
+  } catch (error) {
+    showToast(`快照建立失敗：${friendlyFirebaseError(error)}`);
+  } finally {
+    state.snapshotCheckInFlight = false;
+  }
+}
+
 document.querySelectorAll(".market-tab").forEach(button => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".market-tab").forEach(tab => tab.classList.remove("active"));
@@ -418,6 +440,10 @@ observeConnection(isConnected => {
   elements.firebaseStatusDot.classList.toggle("offline", !isConnected);
 });
 
+observeServerTimeOffset(offset => {
+  state.serverTimeOffset = offset;
+});
+
 observeAuthentication(user => {
   state.unsubscribeHoldings?.();
   state.unsubscribeHoldings = null;
@@ -460,9 +486,17 @@ observeAuthentication(user => {
     }
     state.holdings = holdings;
     render();
+    checkAssetSnapshot();
   }, error => {
     state.holdings = [];
     render();
     showToast(`讀取失敗：${friendlyFirebaseError(error)}`);
   });
+});
+
+setInterval(checkAssetSnapshot, 5 * 60 * 1000);
+window.addEventListener("focus", checkAssetSnapshot);
+window.addEventListener("online", checkAssetSnapshot);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") checkAssetSnapshot();
 });

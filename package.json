@@ -2,10 +2,12 @@
   "name": "stock-v2",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Personal Taiwan and US stock portfolio dashboard",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/app.js && node --check public/firebase-service.js && node --check public/firebase-config.js"
+    "check": "node --check server.js && node --check public/app.js && node --check public/firebase-service.js && node --check public/firebase-config.js && node --check public/snapshot-scheduler.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"
