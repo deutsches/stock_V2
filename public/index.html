@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f3ee" />
+    <title>StockV2｜投資總覽</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="StockV2 首頁">
+          <span class="brand-mark">S</span>
+          <span>StockV2</span>
+        </a>
+
+        <nav class="main-nav" aria-label="主要選單">
+          <a class="nav-item active" href="#">
+            <span class="nav-icon">◫</span><span>投資總覽</span>
+          </a>
+          <a class="nav-item disabled" href="#" aria-disabled="true">
+            <span class="nav-icon">↕</span><span>交易紀錄</span><small>即將推出</small>
+          </a>
+          <a class="nav-item disabled" href="#" aria-disabled="true">
+            <span class="nav-icon">◷</span><span>資產歷史</span><small>即將推出</small>
+          </a>
+        </nav>
+
+        <div class="sidebar-note">
+          <span class="status-dot"></span>
+          <div><strong>資料儲存在本機</strong><small>你的資料不會離開瀏覽器</small></div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">PORTFOLIO OVERVIEW</p>
+            <h1>早安，Aaron</h1>
+            <p class="subtitle">這是你目前的投資組合狀況。</p>
+          </div>
+          <div class="header-actions">
+            <div class="sync-state"><span></span><div><small>最近更新</small><strong id="last-updated">尚未更新</strong></div></div>
+            <button class="button secondary" id="reset-data" type="button">重設示範資料</button>
+            <button class="button primary" id="open-price-dialog" type="button"><span>＋</span> 更新價格</button>
+          </div>
+        </header>
+
+        <section class="summary-grid" aria-label="資產摘要">
+          <article class="summary-card primary-card">
+            <div class="card-label"><span>總資產</span><span class="currency-pill">TWD</span></div>
+            <strong class="metric" id="total-assets">NT$0</strong>
+            <div class="metric-change" id="total-change"></div>
+            <div class="allocation-bar" aria-label="台股與美股資產比例"><span id="tw-allocation"></span><span id="us-allocation"></span></div>
+            <div class="allocation-legend"><span><i class="tw-dot"></i>台股 <b id="tw-percent">0%</b></span><span><i class="us-dot"></i>美股 <b id="us-percent">0%</b></span></div>
+          </article>
+
+          <article class="summary-card">
+            <div class="card-label"><span>投入成本</span><span class="card-icon">＄</span></div>
+            <strong class="metric small" id="total-cost">NT$0</strong>
+            <p class="card-caption">依目前持股平均成本</p>
+          </article>
+
+          <article class="summary-card">
+            <div class="card-label"><span>未實現損益</span><span class="card-icon">↗</span></div>
+            <strong class="metric small" id="unrealized-profit">NT$0</strong>
+            <p class="card-caption" id="unrealized-rate">報酬率 0%</p>
+          </article>
+
+          <article class="summary-card">
+            <div class="card-label"><span>今日變化</span><span class="card-icon">≈</span></div>
+            <strong class="metric small" id="daily-change">NT$0</strong>
+            <p class="card-caption" id="daily-rate">較前一個收盤價 0%</p>
+          </article>
+        </section>
+
+        <section class="holdings-section">
+          <div class="section-heading">
+            <div><h2>目前持股</h2><p id="holding-count">0 檔持股</p></div>
+            <div class="market-tabs" role="tablist" aria-label="市場篩選">
+              <button class="market-tab active" data-market="ALL" role="tab">全部</button>
+              <button class="market-tab" data-market="TW" role="tab">台股</button>
+              <button class="market-tab" data-market="US" role="tab">美股</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>標的</th><th>持有股數</th><th>平均成本</th><th>最新價格</th><th>目前市值</th><th>未實現損益</th><th></th></tr></thead>
+              <tbody id="holdings-body"></tbody>
+            </table>
+            <div class="empty-state" id="empty-state" hidden><strong>這個市場目前沒有持股</strong><span>切換其他市場，或稍後從交易紀錄新增股票。</span></div>
+          </div>
+          <p class="table-note">美股資產依示範匯率 1 USD = NT$32.50 換算；各列仍以原幣顯示。</p>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="price-dialog">
+      <form method="dialog" id="price-form">
+        <div class="dialog-header"><div><p class="eyebrow">MANUAL UPDATE</p><h2>更新股票價格</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <p class="dialog-copy">手動價格會儲存在這個瀏覽器，並立即重新計算損益。</p>
+        <label>選擇股票<select id="price-symbol" required></select></label>
+        <label>最新價格<div class="price-input"><span id="price-currency">NT$</span><input id="new-price" type="number" min="0.01" step="0.01" required /></div></label>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存並更新</button></div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">價格已更新</div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

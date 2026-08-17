@@ -19,3 +19,12 @@
 - 每項功能從 `main` 建立獨立的 `feature/*` 分支
 - 第一個功能分支：`feature/portfolio-dashboard`
 
+## 執行 Dashboard
+
+需要 Node.js 20 以上版本，不需安裝外部套件。
+
+```bash
+npm start
+```
+
+接著開啟 `http://127.0.0.1:3000`。
