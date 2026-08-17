@@ -97,10 +97,13 @@
         <section class="holdings-section">
           <div class="section-heading">
             <div><h2>目前持股</h2><p id="holding-count">0 檔持股</p></div>
-            <div class="market-tabs" role="tablist" aria-label="市場篩選">
-              <button class="market-tab active" data-market="ALL" role="tab">全部</button>
-              <button class="market-tab" data-market="TW" role="tab">台股</button>
-              <button class="market-tab" data-market="US" role="tab">美股</button>
+            <div class="holdings-controls">
+              <div class="market-tabs" role="tablist" aria-label="市場篩選">
+                <button class="market-tab active" data-market="ALL" role="tab">全部</button>
+                <button class="market-tab" data-market="TW" role="tab">台股</button>
+                <button class="market-tab" data-market="US" role="tab">美股</button>
+              </div>
+              <button class="button primary add-holding-button" id="open-holding-dialog" type="button">＋ 新增持股</button>
             </div>
           </div>
 
@@ -124,20 +127,41 @@
               </thead>
               <tbody id="holdings-body"></tbody>
             </table>
-            <div class="empty-state" id="empty-state" hidden><strong>這個市場目前沒有持股</strong><span>切換其他市場，或稍後從交易紀錄新增股票。</span></div>
+            <div class="empty-state" id="empty-state" hidden><strong>這個市場目前沒有持股</strong><span>切換其他市場，或使用「新增持股」建立第一筆資料。</span></div>
           </div>
           <p class="table-note">美股的換台幣成本目前統一依匯率 1 USD = NT$30.33 計算。</p>
         </section>
       </main>
     </div>
 
+    <dialog id="holding-dialog">
+      <form method="dialog" id="holding-form" autocomplete="off">
+        <div class="dialog-header"><div><p class="eyebrow">NEW HOLDING</p><h2>新增持股</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <p class="dialog-copy">輸入目前持股資料，成本、損益與佔比會由系統自動計算。</p>
+        <div class="form-grid">
+          <label>市場<select id="holding-market" required><option value="TW">台股</option><option value="US">美股</option></select></label>
+          <label>股票代號<input id="holding-symbol" type="text" maxlength="16" placeholder="例如 2330 或 AAPL" required /></label>
+          <label class="full-field">股票名稱<input id="holding-name" type="text" maxlength="60" placeholder="例如 台積電或 Apple" /></label>
+          <label>股數<input id="holding-shares" type="number" min="0.0001" step="0.0001" placeholder="0" required /></label>
+          <label>持有成本<div class="price-input"><span class="holding-currency">NT$</span><input id="holding-total-cost" type="number" min="0" step="0.01" placeholder="0" required /></div></label>
+          <div class="calculated-field full-field"><small>自動計算均價</small><strong id="holding-calculated-average">—</strong></div>
+          <label class="full-field">目前股價<div class="price-input"><span class="holding-currency">NT$</span><input id="holding-price" type="number" min="0" step="0.01" placeholder="0" required /></div></label>
+        </div>
+        <p class="form-error" id="holding-form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">新增持股</button></div>
+      </form>
+    </dialog>
+
     <dialog id="price-dialog">
       <form method="dialog" id="price-form">
-        <div class="dialog-header"><div><p class="eyebrow">MANUAL UPDATE</p><h2>更新股票價格</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
-        <p class="dialog-copy">手動價格會儲存在這個瀏覽器，並立即重新計算損益。</p>
+        <div class="dialog-header"><div><p class="eyebrow">MANAGE HOLDING</p><h2>更新持股</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <p class="dialog-copy">修改股數、持有成本或最新價格後，系統會立即重新計算所有金額。</p>
         <label>選擇股票<select id="price-symbol" required></select></label>
+        <label>持有股數<input id="update-shares" type="number" min="0.0001" step="0.0001" required /></label>
+        <label>持有成本<div class="price-input"><span id="update-cost-currency">NT$</span><input id="update-total-cost" type="number" min="0" step="0.01" required /></div></label>
+        <div class="calculated-field"><small>自動計算均價</small><strong id="update-calculated-average">—</strong></div>
         <label>最新價格<div class="price-input"><span id="price-currency">NT$</span><input id="new-price" type="number" min="0.01" step="0.01" required /></div></label>
-        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存並更新</button></div>
+        <div class="dialog-actions split-actions"><button class="button danger" id="delete-holding" type="button">刪除持股</button><div><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存變更</button></div></div>
       </form>
     </dialog>
 

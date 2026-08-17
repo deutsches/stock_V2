@@ -22,18 +22,50 @@ const elements = {
   dialog: document.querySelector("#price-dialog"),
   form: document.querySelector("#price-form"),
   symbol: document.querySelector("#price-symbol"),
+  updateShares: document.querySelector("#update-shares"),
+  updateTotalCost: document.querySelector("#update-total-cost"),
+  updateCostCurrency: document.querySelector("#update-cost-currency"),
+  updateCalculatedAverage: document.querySelector("#update-calculated-average"),
   price: document.querySelector("#new-price"),
   currency: document.querySelector("#price-currency"),
+  holdingDialog: document.querySelector("#holding-dialog"),
+  holdingForm: document.querySelector("#holding-form"),
+  holdingMarket: document.querySelector("#holding-market"),
+  holdingSymbol: document.querySelector("#holding-symbol"),
+  holdingName: document.querySelector("#holding-name"),
+  holdingShares: document.querySelector("#holding-shares"),
+  holdingTotalCost: document.querySelector("#holding-total-cost"),
+  holdingCalculatedAverage: document.querySelector("#holding-calculated-average"),
+  holdingPrice: document.querySelector("#holding-price"),
+  holdingFormError: document.querySelector("#holding-form-error"),
   toast: document.querySelector("#toast")
 };
 
 function loadHoldings() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return Array.isArray(stored) && stored.length ? stored : structuredClone(sampleHoldings);
+    return Array.isArray(stored) ? stored : structuredClone(sampleHoldings);
   } catch {
     return structuredClone(sampleHoldings);
   }
+}
+
+function holdingKey(item) {
+  return `${item.market}:${item.symbol}`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;"
+  })[character]);
+}
+
+function saveHoldings() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.holdings));
 }
 
 function inTwd(value, market) {
@@ -152,9 +184,10 @@ function renderHoldings() {
     const allocation = portfolioValue ? (twdValue / portfolioValue) * 100 : 0;
     const profitClass = profit >= 0 ? "positive" : "negative";
     const changeClass = change >= 0 ? "positive" : "negative";
+    const displayLabel = item.market === "TW" ? item.name : item.symbol;
     return `
       <tr>
-        <td><strong class="stock-symbol">${item.symbol}</strong></td>
+        <td><strong class="stock-symbol" title="${escapeHtml(item.symbol)}">${escapeHtml(displayLabel)}</strong></td>
         <td>${number(item.shares, 4)}</td>
         <td>${number(item.averageCost)}</td>
         <td>${number(cost)}</td>
@@ -165,7 +198,7 @@ function renderHoldings() {
         <td class="${changeClass}">${percent(changeRate, false)}</td>
         <td>${number(twdCost, 0)}</td>
         <td>${percent(allocation, false)}</td>
-        <td class="action-column"><button class="row-action" data-update-symbol="${item.symbol}" aria-label="更新 ${item.name} 價格" title="更新價格">⋯</button></td>
+        <td class="action-column"><button class="row-action" data-update-key="${escapeHtml(holdingKey(item))}" aria-label="管理 ${escapeHtml(item.name)}" title="更新或刪除">⋯</button></td>
       </tr>`;
   }).join("");
 
@@ -179,35 +212,111 @@ function render() {
   renderHoldings();
 }
 
-function openPriceDialog(symbol = state.holdings[0]?.symbol) {
-  elements.symbol.innerHTML = state.holdings.map(item => `<option value="${item.symbol}">${item.symbol} · ${item.name}</option>`).join("");
-  elements.symbol.value = symbol;
+function openPriceDialog(key = state.holdings[0] ? holdingKey(state.holdings[0]) : "") {
+  elements.symbol.innerHTML = state.holdings.map(item => `<option value="${escapeHtml(holdingKey(item))}">${escapeHtml(item.symbol)} · ${escapeHtml(item.name)}</option>`).join("");
+  elements.symbol.value = key;
   syncPriceInput();
   elements.dialog.showModal();
   setTimeout(() => elements.price.focus(), 50);
 }
 
 function syncPriceInput() {
-  const selected = state.holdings.find(item => item.symbol === elements.symbol.value);
+  const selected = state.holdings.find(item => holdingKey(item) === elements.symbol.value);
   if (!selected) return;
   elements.currency.textContent = selected.market === "US" ? "US$" : "NT$";
+  elements.updateCostCurrency.textContent = selected.market === "US" ? "US$" : "NT$";
+  elements.updateShares.value = selected.shares;
+  elements.updateTotalCost.value = selected.shares * selected.averageCost;
   elements.price.value = selected.price;
   elements.price.step = selected.market === "US" ? "0.01" : "0.1";
+  renderCalculatedAverage(elements.updateShares, elements.updateTotalCost, elements.updateCalculatedAverage, selected.market);
 }
 
 function savePrice(event) {
   event.preventDefault();
-  const holding = state.holdings.find(item => item.symbol === elements.symbol.value);
+  const holding = state.holdings.find(item => holdingKey(item) === elements.symbol.value);
+  const newShares = Number(elements.updateShares.value);
+  const newTotalCost = Number(elements.updateTotalCost.value);
   const newPrice = Number(elements.price.value);
-  if (!holding || !Number.isFinite(newPrice) || newPrice <= 0) return;
+  if (!holding || !Number.isFinite(newShares) || newShares <= 0 || !Number.isFinite(newTotalCost) || newTotalCost < 0 || !Number.isFinite(newPrice) || newPrice <= 0) return;
 
+  holding.shares = newShares;
+  holding.averageCost = newTotalCost / newShares;
+  if (newPrice !== holding.price) holding.previousClose = holding.price;
   holding.price = newPrice;
   state.updatedAt = new Intl.DateTimeFormat("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.holdings));
+  saveHoldings();
   localStorage.setItem(`${STORAGE_KEY}-updated-at`, state.updatedAt);
   elements.dialog.close();
   render();
-  showToast(`${holding.name} 已更新為 ${money(newPrice, holding.market)}`);
+  showToast(`${holding.name} 的股數與價格已更新`);
+}
+
+function openHoldingDialog() {
+  elements.holdingForm.reset();
+  elements.holdingMarket.value = state.market === "US" ? "US" : "TW";
+  elements.holdingFormError.textContent = "";
+  syncHoldingCurrency();
+  elements.holdingDialog.showModal();
+  setTimeout(() => elements.holdingSymbol.focus(), 50);
+}
+
+function syncHoldingCurrency() {
+  const isUsMarket = elements.holdingMarket.value === "US";
+  const currency = isUsMarket ? "US$" : "NT$";
+  document.querySelectorAll(".holding-currency").forEach(node => { node.textContent = currency; });
+  elements.holdingName.required = !isUsMarket;
+  elements.holdingName.placeholder = isUsMarket ? "可留空，首頁顯示股票代號" : "請輸入中文名稱，例如台積電";
+  renderCalculatedAverage(elements.holdingShares, elements.holdingTotalCost, elements.holdingCalculatedAverage, elements.holdingMarket.value);
+}
+
+function renderCalculatedAverage(sharesInput, costInput, output, market) {
+  const shares = Number(sharesInput.value);
+  const totalCost = Number(costInput.value);
+  if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(totalCost) || totalCost < 0) {
+    output.textContent = "—";
+    return;
+  }
+  output.textContent = `${market === "US" ? "US$" : "NT$"}${number(totalCost / shares)}`;
+}
+
+function addHolding(event) {
+  event.preventDefault();
+  const market = elements.holdingMarket.value;
+  const symbol = elements.holdingSymbol.value.trim().toUpperCase();
+  const name = elements.holdingName.value.trim() || symbol;
+  const shares = Number(elements.holdingShares.value);
+  const totalCost = Number(elements.holdingTotalCost.value);
+  const price = Number(elements.holdingPrice.value);
+  const averageCost = totalCost / shares;
+  const newHolding = { market, symbol, name, shares, averageCost, price, previousClose: price };
+
+  if (!symbol || (market === "TW" && !elements.holdingName.value.trim()) || ![shares, totalCost, price].every(Number.isFinite) || shares <= 0 || totalCost < 0 || price < 0) {
+    elements.holdingFormError.textContent = "請確認代號、股數、持有成本與股價均已正確填寫。";
+    return;
+  }
+  if (state.holdings.some(item => holdingKey(item) === holdingKey(newHolding))) {
+    elements.holdingFormError.textContent = "這個市場已經有相同股票代號。";
+    return;
+  }
+
+  state.holdings.push(newHolding);
+  saveHoldings();
+  elements.holdingDialog.close();
+  render();
+  showToast(`${name} 已加入持股`);
+}
+
+function deleteHolding() {
+  const index = state.holdings.findIndex(item => holdingKey(item) === elements.symbol.value);
+  if (index < 0) return;
+  const holding = state.holdings[index];
+  if (!window.confirm(`確定要刪除 ${holding.symbol} ${holding.name}？此操作不會保留交易紀錄。`)) return;
+  state.holdings.splice(index, 1);
+  saveHoldings();
+  elements.dialog.close();
+  render();
+  showToast(`${holding.name} 已刪除`);
 }
 
 function showToast(message) {
@@ -227,12 +336,26 @@ document.querySelectorAll(".market-tab").forEach(button => {
 });
 
 document.querySelectorAll("[data-close-dialog]").forEach(button => {
-  button.addEventListener("click", () => elements.dialog.close());
+  button.addEventListener("click", () => button.closest("dialog").close());
 });
+document.querySelector("#open-holding-dialog").addEventListener("click", openHoldingDialog);
+document.querySelector("#delete-holding").addEventListener("click", deleteHolding);
+elements.holdingMarket.addEventListener("change", syncHoldingCurrency);
+elements.holdingShares.addEventListener("input", syncHoldingCurrency);
+elements.holdingTotalCost.addEventListener("input", syncHoldingCurrency);
+elements.holdingForm.addEventListener("submit", addHolding);
 elements.symbol.addEventListener("change", syncPriceInput);
+elements.updateShares.addEventListener("input", () => {
+  const selected = state.holdings.find(item => holdingKey(item) === elements.symbol.value);
+  if (selected) renderCalculatedAverage(elements.updateShares, elements.updateTotalCost, elements.updateCalculatedAverage, selected.market);
+});
+elements.updateTotalCost.addEventListener("input", () => {
+  const selected = state.holdings.find(item => holdingKey(item) === elements.symbol.value);
+  if (selected) renderCalculatedAverage(elements.updateShares, elements.updateTotalCost, elements.updateCalculatedAverage, selected.market);
+});
 elements.form.addEventListener("submit", savePrice);
 elements.body.addEventListener("click", event => {
-  const button = event.target.closest("[data-update-symbol]");
-  if (button) openPriceDialog(button.dataset.updateSymbol);
+  const button = event.target.closest("[data-update-key]");
+  if (button) openPriceDialog(button.dataset.updateKey);
 });
 render();
