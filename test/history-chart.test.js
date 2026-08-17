@@ -4,6 +4,7 @@ import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, 
 import { createHistoryDemoSnapshots } from "../public/history-demo-data.js";
 
 const records = {
+  "2026-01-01_manual": { localDate: "2026-01-01", slot: "manual", createdAt: Date.parse("2026-08-17T22:00:00+08:00"), total: { totalAssetsTwd: 11191872 } },
   "2026-08-09_1430": { localDate: "2026-08-09", slot: "1430", createdAt: Date.parse("2026-08-09T14:30:00+08:00"), total: { marketValueTwd: 1100, costTwd: 900 } },
   invalid: { localDate: "2026-08-11", slot: "1430", total: { marketValueTwd: "bad", costTwd: 900 } },
   "2026-08-17_0630": { localDate: "2026-08-17", slot: "0630", createdAt: Date.parse("2026-08-17T06:30:00+08:00"), total: { marketValueTwd: 1200, costTwd: 950 } },
@@ -12,8 +13,9 @@ const records = {
 
 test("正規化快照會過濾無效資料並依時間排序", () => {
   const snapshots = normalizeSnapshots(records);
-  assert.equal(snapshots.length, 2);
-  assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-08-09_1430", "2026-08-17_1430"]);
+  assert.equal(snapshots.length, 3);
+  assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-01-01_manual", "2026-08-09_1430", "2026-08-17_1430"]);
+  assert.equal(snapshots[0].marketValueTwd, null);
   assert.equal(snapshots.at(-1).totalAssetsTwd, 1350);
   assert.equal(snapshots.at(-1).cashTwd, 100);
 });
@@ -22,12 +24,13 @@ test("歷史範圍以最新快照往前篩選", () => {
   const snapshots = normalizeSnapshots(records);
   assert.equal(filterSnapshotsByRange(snapshots, "7").length, 1);
   assert.equal(filterSnapshotsByRange(snapshots, "30").length, 2);
-  assert.equal(filterSnapshotsByRange(snapshots, "ALL").length, 2);
+  assert.equal(filterSnapshotsByRange(snapshots, "YTD").length, 3);
+  assert.equal(filterSnapshotsByRange(snapshots, "ALL").length, 3);
 });
 
 test("曲線模型會產生總資產與持股市值路徑", () => {
   const model = buildHistoryChartModel(normalizeSnapshots(records));
-  assert.equal(model.points.length, 2);
+  assert.equal(model.points.length, 3);
   assert.match(model.assetsPath, /^M .+ L /);
   assert.match(model.holdingsPath, /^M .+ L /);
   assert.equal(model.yTicks.length, 5);

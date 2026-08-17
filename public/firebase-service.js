@@ -100,6 +100,16 @@ export function saveCashBalances(uid, cash) {
   });
 }
 
+export function saveManualAssetRecord(uid, localDate, totalAssetsTwd) {
+  return set(ref(database, userPath(uid, `snapshots/${localDate}_manual`)), {
+    localDate,
+    slot: "manual",
+    source: "manual",
+    total: { totalAssetsTwd },
+    createdAt: serverTimestamp()
+  });
+}
+
 export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {
   const snapshotRef = ref(database, userPath(uid, `snapshots/${snapshotId}`));
   const result = await runTransaction(snapshotRef, currentValue => {

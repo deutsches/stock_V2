@@ -1,9 +1,15 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function snapshotTimestamp(snapshot) {
-  if (Number.isFinite(Number(snapshot.createdAt))) return Number(snapshot.createdAt);
-  const time = snapshot.slot === "0630" ? "06:30" : "14:30";
+  if (snapshot.slot !== "manual" && Number.isFinite(Number(snapshot.createdAt))) return Number(snapshot.createdAt);
+  const time = snapshot.slot === "0630" ? "06:30" : snapshot.slot === "manual" ? "00:00" : "14:30";
   return Date.parse(`${snapshot.localDate}T${time}:00+08:00`);
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 export function normalizeSnapshots(records) {
@@ -15,12 +21,12 @@ export function normalizeSnapshots(records) {
       localDate: snapshot?.localDate,
       slot: snapshot?.slot,
       createdAt: snapshot?.createdAt,
-      marketValueTwd: Number(snapshot?.total?.marketValueTwd),
-      totalAssetsTwd: Number(snapshot?.total?.totalAssetsTwd ?? snapshot?.total?.marketValueTwd),
-      cashTwd: Number(snapshot?.cash?.totalTwd ?? 0),
-      costTwd: Number(snapshot?.total?.costTwd),
-      unrealizedProfitTwd: Number(snapshot?.total?.unrealizedProfitTwd),
-      dailyChangeTwd: Number(snapshot?.total?.dailyChangeTwd),
+      marketValueTwd: optionalNumber(snapshot?.total?.marketValueTwd),
+      totalAssetsTwd: optionalNumber(snapshot?.total?.totalAssetsTwd ?? snapshot?.total?.marketValueTwd),
+      cashTwd: snapshot?.slot === "manual" ? null : optionalNumber(snapshot?.cash?.totalTwd ?? 0),
+      costTwd: optionalNumber(snapshot?.total?.costTwd),
+      unrealizedProfitTwd: optionalNumber(snapshot?.total?.unrealizedProfitTwd),
+      dailyChangeTwd: optionalNumber(snapshot?.total?.dailyChangeTwd),
       holdingCount: Number(snapshot?.holdingCount),
       exchangeRate: Number(snapshot?.exchangeRate),
       twMarketValueTwd: Number(snapshot?.markets?.TW?.marketValue),
@@ -29,17 +35,17 @@ export function normalizeSnapshots(records) {
     .map(snapshot => ({ ...snapshot, timestamp: snapshotTimestamp(snapshot) }))
     .filter(snapshot =>
       /^\d{4}-\d{2}-\d{2}$/.test(snapshot.localDate || "") &&
-      ["0630", "1430"].includes(snapshot.slot) &&
+      ["0630", "1430", "manual"].includes(snapshot.slot) &&
       Number.isFinite(snapshot.timestamp) &&
-      Number.isFinite(snapshot.marketValueTwd) &&
       Number.isFinite(snapshot.totalAssetsTwd) &&
-      Number.isFinite(snapshot.costTwd)
+      (snapshot.slot === "manual" || (Number.isFinite(snapshot.marketValueTwd) && Number.isFinite(snapshot.costTwd)))
     )
     .sort((a, b) => a.timestamp - b.timestamp);
 
   return [...snapshots.reduce((byDate, snapshot) => {
     const current = byDate.get(snapshot.localDate);
-    if (!current || snapshot.slot === "1430") byDate.set(snapshot.localDate, snapshot);
+    const priority = { "0630": 1, manual: 2, "1430": 3 };
+    if (!current || priority[snapshot.slot] > priority[current.slot]) byDate.set(snapshot.localDate, snapshot);
     return byDate;
   }, new Map()).values()];
 }
@@ -80,6 +86,11 @@ export function calculateHistoryStats(snapshots) {
 
 export function filterSnapshotsByRange(snapshots, range) {
   if (range === "ALL" || snapshots.length === 0) return snapshots;
+  if (range === "YTD") {
+    const year = new Date(snapshots.at(-1).timestamp).getUTCFullYear();
+    const cutoff = Date.parse(`${year}-01-01T00:00:00+08:00`);
+    return snapshots.filter(snapshot => snapshot.timestamp >= cutoff);
+  }
   const days = Number(range);
   if (!Number.isFinite(days) || days <= 0) return snapshots;
   const latestTimestamp = snapshots.at(-1).timestamp;
@@ -93,7 +104,7 @@ export function buildHistoryChartModel(snapshots, width = 1000, height = 320) {
   const bounds = { top: 22, right: 28, bottom: 42, left: 88 };
   const innerWidth = width - bounds.left - bounds.right;
   const innerHeight = height - bounds.top - bounds.bottom;
-  const values = snapshots.flatMap(snapshot => [snapshot.totalAssetsTwd, snapshot.marketValueTwd]);
+  const values = snapshots.flatMap(snapshot => [snapshot.totalAssetsTwd, snapshot.marketValueTwd]).filter(Number.isFinite);
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
   const spread = rawMax - rawMin;
@@ -107,9 +118,20 @@ export function buildHistoryChartModel(snapshots, width = 1000, height = 320) {
     ...snapshot,
     x: x(index),
     assetsY: y(snapshot.totalAssetsTwd),
-    holdingsY: y(snapshot.marketValueTwd)
+    holdingsY: Number.isFinite(snapshot.marketValueTwd) ? y(snapshot.marketValueTwd) : null
   }));
-  const pathFor = key => points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(2)} ${point[key].toFixed(2)}`).join(" ");
+  const pathFor = key => {
+    let drawing = false;
+    return points.flatMap(point => {
+      if (!Number.isFinite(point[key])) {
+        drawing = false;
+        return [];
+      }
+      const command = drawing ? "L" : "M";
+      drawing = true;
+      return `${command} ${point.x.toFixed(2)} ${point[key].toFixed(2)}`;
+    }).join(" ");
+  };
   const yTicks = Array.from({ length: 5 }, (_, index) => {
     const ratio = index / 4;
     return { value: max - range * ratio, y: bounds.top + innerHeight * ratio };

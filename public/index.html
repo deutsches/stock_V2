@@ -159,7 +159,10 @@
               <h1>資產歷史</h1>
               <p class="subtitle">查看持股市值加上現金後的總資產變化。</p>
             </div>
-            <button class="button secondary" id="history-demo-toggle" type="button">預覽範例資料</button>
+            <div class="page-actions">
+              <button class="button secondary" id="open-history-record-dialog" type="button">新增基準紀錄</button>
+              <button class="button secondary" id="history-demo-toggle" type="button">預覽範例資料</button>
+            </div>
           </header>
 
           <div class="demo-notice" id="history-demo-notice" hidden><strong>範例模式</strong> 目前顯示模擬資料，內容不會寫入 Firebase。</div>
@@ -179,7 +182,8 @@
                 <p id="history-summary">等待歷史快照資料</p>
               </div>
               <div class="history-ranges" role="group" aria-label="歷史資料範圍">
-                <button class="history-range active" type="button" data-history-range="7">7 天</button>
+                <button class="history-range active" type="button" data-history-range="YTD">今年</button>
+                <button class="history-range" type="button" data-history-range="7">7 天</button>
                 <button class="history-range" type="button" data-history-range="30">30 天</button>
                 <button class="history-range" type="button" data-history-range="ALL">全部</button>
               </div>
@@ -257,6 +261,17 @@
         <div class="calculated-field"><small>換算後現金合計</small><strong id="cash-total-preview">NT$0</strong></div>
         <p class="form-error" id="cash-form-error" role="alert"></p>
         <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存現金</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="history-record-dialog">
+      <form method="dialog" id="history-record-form">
+        <div class="dialog-header"><div><p class="eyebrow">HISTORY BASELINE</p><h2>新增總資產基準</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <p class="dialog-copy">適合補登過去只記得總資產、但沒有持股與現金明細的紀錄。</p>
+        <label>記錄日期<input id="history-record-date" type="date" required /></label>
+        <label>總資產<div class="price-input"><span>NT$</span><input id="history-record-assets" type="number" min="0" step="any" required /></div></label>
+        <p class="form-error" id="history-record-error" role="alert"></p>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存基準</button></div>
       </form>
     </dialog>
 

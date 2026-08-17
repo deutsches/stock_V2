@@ -9,6 +9,7 @@ import {
   replaceHoldings,
   replaceSnapshot,
   saveCashBalances,
+  saveManualAssetRecord,
   signInWithGoogle,
   signOutUser
 } from "./firebase-service.js";
@@ -30,7 +31,7 @@ const state = {
   unsubscribeCash: null,
   unsubscribeSnapshots: null,
   snapshots: [],
-  historyRange: "7",
+  historyRange: "YTD",
   historyDemo: false,
   firebaseLoaded: false,
   cashLoaded: false,
@@ -76,6 +77,11 @@ const elements = {
   cashUsd: document.querySelector("#cash-usd"),
   cashTotalPreview: document.querySelector("#cash-total-preview"),
   cashFormError: document.querySelector("#cash-form-error"),
+  historyRecordDialog: document.querySelector("#history-record-dialog"),
+  historyRecordForm: document.querySelector("#history-record-form"),
+  historyRecordDate: document.querySelector("#history-record-date"),
+  historyRecordAssets: document.querySelector("#history-record-assets"),
+  historyRecordError: document.querySelector("#history-record-error"),
   historyChart: document.querySelector("#history-chart"),
   historyChartWrap: document.querySelector("#history-chart-wrap"),
   historyEmpty: document.querySelector("#history-empty"),
@@ -296,6 +302,7 @@ function shortMoney(value) {
 
 function snapshotLabel(snapshot) {
   const [, month, day] = snapshot.localDate.split("-");
+  if (snapshot.slot === "manual") return `${month}/${day} 手動基準`;
   return `${month}/${day} ${snapshot.slot === "0630" ? "06:30" : "14:30"}`;
 }
 
@@ -332,8 +339,8 @@ function renderHistoryRecords(snapshots) {
     return `<tr>
       <td>${snapshotLabel(snapshot)}</td>
       <td>${money(snapshot.totalAssetsTwd)}</td>
-      <td>${money(snapshot.marketValueTwd)}</td>
-      <td>${money(snapshot.cashTwd)}</td>
+      <td>${Number.isFinite(snapshot.marketValueTwd) ? money(snapshot.marketValueTwd) : "—"}</td>
+      <td>${Number.isFinite(snapshot.cashTwd) ? money(snapshot.cashTwd) : "—"}</td>
       <td class="${change >= 0 ? "positive" : "negative"}">${previous ? money(change, "TW", true) : "—"}</td>
     </tr>`;
   }).join("");
@@ -367,11 +374,16 @@ function renderHistoryChart() {
   const labels = model.xLabels.map(point => `
     <text class="chart-axis-label" x="${point.x}" y="${model.height - 13}" text-anchor="middle">${snapshotLabel(point)}</text>
   `).join("");
-  const points = model.points.map(point => `
+  const points = model.points.map(point => {
+    const details = Number.isFinite(point.marketValueTwd)
+      ? `｜持股 ${money(point.marketValueTwd)}｜現金 ${money(point.cashTwd)}`
+      : "｜手動補登，無明細";
+    return `
     <circle class="chart-point" cx="${point.x}" cy="${point.assetsY}" r="4" tabindex="0">
-      <title>${snapshotLabel(point)}｜總資產 ${money(point.totalAssetsTwd)}｜持股 ${money(point.marketValueTwd)}｜現金 ${money(point.cashTwd)}</title>
+      <title>${snapshotLabel(point)}｜總資產 ${money(point.totalAssetsTwd)}${details}</title>
     </circle>
-  `).join("");
+  `;
+  }).join("");
 
   elements.historyChart.innerHTML = `
     <title id="history-chart-title">資產歷史曲線圖</title>
@@ -511,6 +523,32 @@ async function saveCash(event) {
   showToast(`現金已更新為 ${money(cashTotalTwd())}`);
 }
 
+function openHistoryRecordDialog() {
+  elements.historyRecordForm.reset();
+  elements.historyRecordDate.value = new Date().toISOString().slice(0, 10);
+  elements.historyRecordError.textContent = "";
+  elements.historyRecordDialog.showModal();
+  setTimeout(() => elements.historyRecordDate.focus(), 50);
+}
+
+async function saveHistoryRecord(event) {
+  event.preventDefault();
+  const localDate = elements.historyRecordDate.value;
+  const totalAssetsTwd = Number(elements.historyRecordAssets.value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate) || !Number.isFinite(totalAssetsTwd) || totalAssetsTwd < 0) {
+    elements.historyRecordError.textContent = "請確認日期與總資產金額。";
+    return;
+  }
+  try {
+    await saveManualAssetRecord(state.user.uid, localDate, totalAssetsTwd);
+  } catch (error) {
+    elements.historyRecordError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
+    return;
+  }
+  elements.historyRecordDialog.close();
+  showToast(`${localDate} 的總資產基準已儲存`);
+}
+
 async function addHolding(event) {
   event.preventDefault();
   const market = elements.holdingMarket.value;
@@ -625,10 +663,12 @@ document.querySelectorAll("[data-close-dialog]").forEach(button => {
 });
 document.querySelector("#open-holding-dialog").addEventListener("click", openHoldingDialog);
 document.querySelector("#open-cash-dialog").addEventListener("click", openCashDialog);
+document.querySelector("#open-history-record-dialog").addEventListener("click", openHistoryRecordDialog);
 document.querySelector("#delete-holding").addEventListener("click", deleteHolding);
 elements.cashTwd.addEventListener("input", renderCashPreview);
 elements.cashUsd.addEventListener("input", renderCashPreview);
 elements.cashForm.addEventListener("submit", saveCash);
+elements.historyRecordForm.addEventListener("submit", saveHistoryRecord);
 elements.holdingMarket.addEventListener("change", syncHoldingCurrency);
 elements.holdingShares.addEventListener("input", syncHoldingCurrency);
 elements.holdingTotalCost.addEventListener("input", syncHoldingCurrency);
