@@ -2,20 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "../public/snapshot-scheduler.js";
 
-test("06:30 前不建立快照", () => {
-  assert.equal(getCurrentSnapshotSlot(new Date("2026-08-16T22:29:00Z")), null);
+test("14:30 前不建立快照", () => {
+  assert.equal(getCurrentSnapshotSlot(new Date("2026-08-17T06:29:00Z")), null);
 });
 
-test("06:30 至 14:29 使用上午時段", () => {
-  assert.deepEqual(getCurrentSnapshotSlot(new Date("2026-08-16T22:30:00Z")), {
-    id: "2026-08-17_0630",
-    date: "2026-08-17",
-    slot: "0630"
-  });
-  assert.equal(getCurrentSnapshotSlot(new Date("2026-08-17T06:29:00Z")).slot, "0630");
-});
-
-test("14:30 後使用下午時段", () => {
+test("14:30 後只使用每日收盤時段", () => {
   assert.deepEqual(getCurrentSnapshotSlot(new Date("2026-08-17T06:30:00Z")), {
     id: "2026-08-17_1430",
     date: "2026-08-17",
@@ -24,8 +15,8 @@ test("14:30 後使用下午時段", () => {
 });
 
 test("使用 Firebase 伺服器時間差校正本機時間", () => {
-  const slot = getCurrentSnapshotSlot(new Date("2026-08-16T22:29:00Z"), 60 * 1000);
-  assert.equal(slot.id, "2026-08-17_0630");
+  const slot = getCurrentSnapshotSlot(new Date("2026-08-17T06:29:00Z"), 60 * 1000);
+  assert.equal(slot.id, "2026-08-17_1430");
 });
 
 test("快照分開保存原幣市場資料並計算台幣總額", () => {

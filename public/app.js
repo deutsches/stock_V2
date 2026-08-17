@@ -3,12 +3,16 @@ import {
   observeAuthentication,
   observeConnection,
   observeHoldings,
+  observeSnapshots,
   observeServerTimeOffset,
   replaceHoldings,
   signInWithGoogle,
   signOutUser
 } from "./firebase-service.js";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
+import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js";
+import { createHistoryDemoSnapshots } from "./history-demo-data.js";
+import { routeFromHash, titleForRoute } from "./router.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const USD_TO_TWD = 30.33;
@@ -18,6 +22,10 @@ const state = {
   holdings: [],
   user: null,
   unsubscribeHoldings: null,
+  unsubscribeSnapshots: null,
+  snapshots: [],
+  historyRange: "7",
+  historyDemo: false,
   firebaseLoaded: false,
   serverTimeOffset: 0,
   snapshotCheckInFlight: false
@@ -52,6 +60,14 @@ const elements = {
   firebaseStatus: document.querySelector("#firebase-status"),
   firebaseStatusDot: document.querySelector("#firebase-status-dot"),
   signedInEmail: document.querySelector("#signed-in-email"),
+  historyChart: document.querySelector("#history-chart"),
+  historyChartWrap: document.querySelector("#history-chart-wrap"),
+  historyEmpty: document.querySelector("#history-empty"),
+  historySummary: document.querySelector("#history-summary"),
+  historyDemoToggle: document.querySelector("#history-demo-toggle"),
+  historyDemoNotice: document.querySelector("#history-demo-notice"),
+  historyRecordsBody: document.querySelector("#history-records-body"),
+  historyRecordCount: document.querySelector("#history-record-count"),
   toast: document.querySelector("#toast")
 };
 
@@ -227,6 +243,120 @@ function render() {
   renderHoldings();
 }
 
+function renderRoute() {
+  const route = routeFromHash(window.location.hash);
+  document.querySelectorAll("[data-route-page]").forEach(page => {
+    page.hidden = page.dataset.routePage !== route;
+  });
+  document.querySelectorAll("[data-route-link]").forEach(link => {
+    const isActive = link.dataset.routeLink === route;
+    link.classList.toggle("active", isActive);
+    if (isActive) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  document.title = titleForRoute(route);
+}
+
+function shortMoney(value) {
+  return new Intl.NumberFormat("zh-TW", {
+    style: "currency",
+    currency: "TWD",
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(value);
+}
+
+function snapshotLabel(snapshot) {
+  const [, month, day] = snapshot.localDate.split("-");
+  return `${month}/${day} ${snapshot.slot === "0630" ? "06:30" : "14:30"}`;
+}
+
+const historyDemoSnapshots = createHistoryDemoSnapshots();
+
+function renderHistoryStats(snapshots) {
+  const stats = calculateHistoryStats(snapshots);
+  const fields = ["history-latest", "history-period-change", "history-highest", "history-drawdown"];
+  if (!stats) {
+    fields.forEach(id => { document.querySelector(`#${id}`).textContent = "—"; });
+    document.querySelector("#history-latest-date").textContent = "尚無資料";
+    document.querySelector("#history-period-rate").textContent = "—";
+    document.querySelector("#history-highest-date").textContent = "—";
+    document.querySelector("#history-drawdown-rate").textContent = "—";
+    return;
+  }
+  document.querySelector("#history-latest").textContent = money(stats.latest.marketValueTwd);
+  document.querySelector("#history-latest-date").textContent = snapshotLabel(stats.latest);
+  const changeNode = document.querySelector("#history-period-change");
+  changeNode.textContent = money(stats.change, "TW", true);
+  changeNode.className = stats.change >= 0 ? "positive" : "negative";
+  document.querySelector("#history-period-rate").textContent = percent(stats.changeRate);
+  document.querySelector("#history-highest").textContent = money(stats.highest.marketValueTwd);
+  document.querySelector("#history-highest-date").textContent = snapshotLabel(stats.highest);
+  document.querySelector("#history-drawdown").textContent = money(-stats.maxDrawdown, "TW", true);
+  document.querySelector("#history-drawdown-rate").textContent = `−${stats.maxDrawdownRate.toFixed(2)}%`;
+}
+
+function renderHistoryRecords(snapshots) {
+  elements.historyRecordCount.textContent = `${snapshots.length} 筆紀錄`;
+  elements.historyRecordsBody.innerHTML = snapshots.slice().reverse().map((snapshot, index, reversed) => {
+    const previous = reversed[index + 1];
+    const change = previous ? snapshot.marketValueTwd - previous.marketValueTwd : 0;
+    const profit = Number.isFinite(snapshot.unrealizedProfitTwd) ? snapshot.unrealizedProfitTwd : snapshot.marketValueTwd - snapshot.costTwd;
+    return `<tr>
+      <td>${snapshotLabel(snapshot)}</td>
+      <td>${money(snapshot.marketValueTwd)}</td>
+      <td>${money(snapshot.costTwd)}</td>
+      <td class="${profit >= 0 ? "positive" : "negative"}">${money(profit, "TW", true)}</td>
+      <td class="${change >= 0 ? "positive" : "negative"}">${previous ? money(change, "TW", true) : "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderHistoryChart() {
+  const source = state.historyDemo ? historyDemoSnapshots : state.snapshots;
+  const snapshots = filterSnapshotsByRange(source, state.historyRange);
+  const model = buildHistoryChartModel(snapshots);
+  renderHistoryStats(snapshots);
+  renderHistoryRecords(snapshots);
+  elements.historyChartWrap.hidden = !model;
+  elements.historyEmpty.hidden = Boolean(model);
+
+  if (!model) {
+    elements.historySummary.textContent = "等待歷史快照資料";
+    elements.historyChart.innerHTML = "";
+    return;
+  }
+
+  const first = snapshots[0];
+  const latest = snapshots.at(-1);
+  const change = latest.marketValueTwd - first.marketValueTwd;
+  const changeRate = first.marketValueTwd ? (change / first.marketValueTwd) * 100 : 0;
+  elements.historySummary.innerHTML = `最新 ${money(latest.marketValueTwd)} <span class="${change >= 0 ? "positive" : "negative"}">${money(change, "TW", true)}（${percent(changeRate)}）</span> · ${snapshots.length} 筆快照`;
+
+  const grid = model.yTicks.map(tick => `
+    <line class="chart-grid-line" x1="${model.bounds.left}" y1="${tick.y}" x2="${model.width - model.bounds.right}" y2="${tick.y}"></line>
+    <text class="chart-axis-label chart-y-label" x="${model.bounds.left - 14}" y="${tick.y + 4}">${shortMoney(tick.value)}</text>
+  `).join("");
+  const labels = model.xLabels.map(point => `
+    <text class="chart-axis-label" x="${point.x}" y="${model.height - 13}" text-anchor="middle">${snapshotLabel(point)}</text>
+  `).join("");
+  const points = model.points.map(point => `
+    <circle class="chart-point" cx="${point.x}" cy="${point.valueY}" r="4" tabindex="0">
+      <title>${snapshotLabel(point)}｜總資產 ${money(point.marketValueTwd)}｜成本 ${money(point.costTwd)}</title>
+    </circle>
+  `).join("");
+
+  elements.historyChart.innerHTML = `
+    <title id="history-chart-title">資產歷史曲線圖</title>
+    <desc id="history-chart-description">${snapshotLabel(first)} 到 ${snapshotLabel(latest)}，共 ${snapshots.length} 筆資產快照</desc>
+    ${grid}
+    ${labels}
+    <path class="chart-line chart-cost-line" d="${model.costPath}"></path>
+    <path class="chart-line chart-value-line" d="${model.valuePath}"></path>
+    ${points}
+  `;
+}
+
 function openPriceDialog(key = state.holdings[0] ? holdingKey(state.holdings[0]) : "") {
   elements.symbol.innerHTML = state.holdings.map(item => `<option value="${escapeHtml(holdingKey(item))}">${escapeHtml(item.symbol)} · ${escapeHtml(item.name)}</option>`).join("");
   elements.symbol.value = key;
@@ -377,7 +507,7 @@ async function checkAssetSnapshot() {
   try {
     const snapshot = buildAssetSnapshot(state.holdings, USD_TO_TWD, slot);
     const created = await createSnapshotIfMissing(state.user.uid, slot.id, snapshot);
-    if (created) showToast(`已建立 ${slot.slot === "0630" ? "06:30" : "14:30"} 資產快照`);
+    if (created) showToast("已建立 14:30 每日資產快照");
   } catch (error) {
     showToast(`快照建立失敗：${friendlyFirebaseError(error)}`);
   } finally {
@@ -417,6 +547,25 @@ elements.body.addEventListener("click", event => {
   const button = event.target.closest("[data-update-key]");
   if (button) openPriceDialog(button.dataset.updateKey);
 });
+document.querySelectorAll("[data-history-range]").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-history-range]").forEach(item => item.classList.remove("active"));
+    button.classList.add("active");
+    state.historyRange = button.dataset.historyRange;
+    renderHistoryChart();
+  });
+});
+elements.historyDemoToggle.addEventListener("click", () => {
+  state.historyDemo = !state.historyDemo;
+  elements.historyDemoNotice.hidden = !state.historyDemo;
+  elements.historyDemoToggle.textContent = state.historyDemo ? "返回真實資料" : "預覽範例資料";
+  renderHistoryChart();
+});
+window.addEventListener("hashchange", () => {
+  renderRoute();
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
+renderRoute();
 
 document.querySelector("#google-sign-in").addEventListener("click", async () => {
   elements.authMessage.textContent = "正在開啟 Google 登入視窗…";
@@ -446,12 +595,16 @@ observeServerTimeOffset(offset => {
 
 observeAuthentication(user => {
   state.unsubscribeHoldings?.();
+  state.unsubscribeSnapshots?.();
   state.unsubscribeHoldings = null;
+  state.unsubscribeSnapshots = null;
   state.user = user;
   state.firebaseLoaded = false;
 
   if (!user) {
     state.holdings = [];
+    state.snapshots = [];
+    renderHistoryChart();
     elements.appShell.hidden = true;
     elements.authScreen.hidden = false;
     elements.authMessage.textContent = "請使用已啟用的 Google 帳號登入";
@@ -461,6 +614,14 @@ observeAuthentication(user => {
   elements.authScreen.hidden = true;
   elements.appShell.hidden = false;
   elements.signedInEmail.textContent = user.email || "已登入";
+  state.unsubscribeSnapshots = observeSnapshots(user.uid, records => {
+    state.snapshots = normalizeSnapshots(records);
+    renderHistoryChart();
+  }, error => {
+    state.snapshots = [];
+    renderHistoryChart();
+    showToast(`歷史資料讀取失敗：${friendlyFirebaseError(error)}`);
+  });
   state.unsubscribeHoldings = observeHoldings(user.uid, async holdings => {
     if (!state.firebaseLoaded) {
       state.firebaseLoaded = true;

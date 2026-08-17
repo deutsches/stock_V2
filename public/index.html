@@ -21,20 +21,20 @@
 
     <div class="app-shell" id="app-shell" hidden>
       <aside class="sidebar">
-        <a class="brand" href="./" aria-label="StockV2 首頁">
+        <a class="brand" href="#/" aria-label="StockV2 首頁">
           <span class="brand-mark">S</span>
           <span>StockV2</span>
         </a>
 
         <nav class="main-nav" aria-label="主要選單">
-          <a class="nav-item active" href="#">
+          <a class="nav-item active" href="#/" data-route-link="dashboard">
             <span class="nav-icon">◫</span><span>投資總覽</span>
           </a>
           <a class="nav-item disabled" href="#" aria-disabled="true">
             <span class="nav-icon">↕</span><span>交易紀錄</span><small>即將推出</small>
           </a>
-          <a class="nav-item disabled" href="#" aria-disabled="true">
-            <span class="nav-icon">◷</span><span>資產歷史</span><small>即將推出</small>
+          <a class="nav-item" href="#/history" data-route-link="history">
+            <span class="nav-icon">◷</span><span>資產歷史</span>
           </a>
         </nav>
 
@@ -48,6 +48,7 @@
       </aside>
 
       <main class="main-content">
+        <div class="route-page" data-route-page="dashboard">
         <header class="page-header">
           <div>
             <p class="eyebrow">PORTFOLIO OVERVIEW</p>
@@ -145,6 +146,66 @@
           </div>
           <p class="table-note">美股的換台幣成本目前統一依匯率 1 USD = NT$30.33 計算。</p>
         </section>
+        </div>
+
+        <div class="route-page history-page" data-route-page="history" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">ASSET HISTORY</p>
+              <h1>資產歷史</h1>
+              <p class="subtitle">查看投資組合資產與投入成本的歷史變化。</p>
+            </div>
+            <button class="button secondary" id="history-demo-toggle" type="button">預覽範例資料</button>
+          </header>
+
+          <div class="demo-notice" id="history-demo-notice" hidden><strong>範例模式</strong> 目前顯示模擬資料，內容不會寫入 Firebase。</div>
+
+          <section class="history-stats" aria-label="歷史區間摘要">
+            <article><small>最新總資產</small><strong id="history-latest">—</strong><span id="history-latest-date">尚無資料</span></article>
+            <article><small>區間增減</small><strong id="history-period-change">—</strong><span id="history-period-rate">—</span></article>
+            <article><small>區間最高</small><strong id="history-highest">—</strong><span id="history-highest-date">—</span></article>
+            <article><small>最大回落</small><strong id="history-drawdown">—</strong><span id="history-drawdown-rate">—</span></article>
+          </section>
+
+          <section class="history-section" aria-labelledby="history-title">
+            <div class="history-heading">
+              <div>
+                <p class="eyebrow">PORTFOLIO TREND</p>
+                <h2 id="history-title">資產走勢</h2>
+                <p id="history-summary">等待歷史快照資料</p>
+              </div>
+              <div class="history-ranges" role="group" aria-label="歷史資料範圍">
+                <button class="history-range active" type="button" data-history-range="7">7 天</button>
+                <button class="history-range" type="button" data-history-range="30">30 天</button>
+                <button class="history-range" type="button" data-history-range="ALL">全部</button>
+              </div>
+            </div>
+            <div class="history-legend" aria-hidden="true">
+              <span><i class="history-value-dot"></i>總資產</span>
+              <span><i class="history-cost-dot"></i>投入成本</span>
+            </div>
+            <div class="history-chart-wrap" id="history-chart-wrap" hidden>
+              <svg id="history-chart" class="history-chart" viewBox="0 0 1000 320" role="img" aria-labelledby="history-chart-title history-chart-description">
+                <title id="history-chart-title">資產歷史曲線圖</title>
+                <desc id="history-chart-description">比較各資產快照的總資產與投入成本</desc>
+              </svg>
+            </div>
+            <div class="history-empty" id="history-empty">
+              <strong>尚無可繪製的歷史資料</strong>
+              <span>系統每日 14:30 建立一筆收盤快照；累積後會自動顯示曲線。</span>
+            </div>
+          </section>
+
+          <section class="history-records">
+            <div class="section-heading"><div><h2>快照明細</h2><p id="history-record-count">0 筆紀錄</p></div></div>
+            <div class="table-wrap">
+              <table class="history-table">
+                <thead><tr><th>日期與時段</th><th>總資產</th><th>投入成本</th><th>未實現損益</th><th>較前次變化</th></tr></thead>
+                <tbody id="history-records-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
 

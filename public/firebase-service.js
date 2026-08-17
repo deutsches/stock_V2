@@ -59,6 +59,12 @@ export function observeHoldings(uid, onData, onError) {
   }, onError);
 }
 
+export function observeSnapshots(uid, onData, onError) {
+  return onValue(ref(database, userPath(uid, "snapshots")), snapshot => {
+    onData(snapshot.val());
+  }, onError);
+}
+
 export function replaceHoldings(uid, holdings) {
   const records = holdings.reduce((result, holding) => {
     result[firebaseHoldingKey(holding)] = {
