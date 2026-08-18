@@ -596,7 +596,7 @@ function renderAnnualSummaries() {
       <td class="${record.usReturnRate === null ? "" : annualValueClass(record.usReturnRate)}">${optionalPercent(record.usReturnRate)}</td>
       <td class="${annualValueClass(record.usProfitTwd)}">${money(record.usProfitTwd, "TW", true)}</td>
       <td class="${annualValueClass(total)}"><strong>${money(total, "TW", true)}</strong></td>
-      <td class="action-column annual-actions-column"><div class="annual-row-actions"><button class="row-edit" data-edit-annual-summary="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${escapeHtml(record.label)} 總記錄">編輯</button><button class="row-action" data-delete-annual-summary="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${escapeHtml(record.label)} 總記錄" title="刪除總記錄">×</button></div></td>
+      <td class="action-column annual-actions-column"><div class="annual-row-actions"><button class="row-edit" data-edit-annual-summary="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${escapeHtml(record.label)} 總記錄" title="編輯總記錄">✎</button><button class="row-action" data-delete-annual-summary="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${escapeHtml(record.label)} 總記錄" title="刪除總記錄">×</button></div></td>
     </tr>`;
   }).join("");
   elements.annualSummaryEmpty.hidden = state.annualSummaries.length > 0;

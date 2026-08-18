@@ -167,7 +167,7 @@ h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-si
 .annual-summary-table td { font-size: 14px; font-variant-numeric: tabular-nums; }
 .annual-actions-column { width: 116px; }
 .annual-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
-.row-edit { min-height: 32px; padding: 6px 11px; border: 1px solid var(--line); border-radius: 8px; color: var(--green); background: white; font-size: 11px; font-weight: 700; }
+.row-edit { display: inline-grid; place-items: center; width: 34px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; color: var(--green); background: white; font-family: Georgia, "Times New Roman", serif; font-size: 19px; font-weight: 700; line-height: 1; }
 .row-edit:hover { border-color: #b9cfc3; background: var(--green-pale); }
 
 .market-breakdown { margin-top: 24px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
