@@ -153,6 +153,7 @@ export function saveAnnualSummary(uid, record) {
     usProfitUsd: record.usProfitUsd,
     usReturnRate: record.usReturnRate,
     usProfitTwd: record.usProfitTwd,
+    linkedToTransactions: record.linkedToTransactions,
     order: record.order,
     createdAt: serverTimestamp()
   });
@@ -167,6 +168,7 @@ export function updateAnnualSummary(uid, recordId, record) {
     usProfitUsd: record.usProfitUsd,
     usReturnRate: record.usReturnRate,
     usProfitTwd: record.usProfitTwd,
+    linkedToTransactions: record.linkedToTransactions,
     order: record.order,
     updatedAt: serverTimestamp()
   });

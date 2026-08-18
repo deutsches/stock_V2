@@ -6,7 +6,7 @@
   "description": "Personal Taiwan and US stock portfolio dashboard",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/app.js && node --check public/firebase-service.js && node --check public/firebase-config.js && node --check public/snapshot-scheduler.js && node --check public/holding-sort.js && node --check public/history-chart.js && node --check public/history-demo-data.js && node --check public/transaction-records.js && node --check public/router.js",
+    "check": "node --check server.js && node --check public/app.js && node --check public/firebase-service.js && node --check public/firebase-config.js && node --check public/snapshot-scheduler.js && node --check public/holding-sort.js && node --check public/history-chart.js && node --check public/history-demo-data.js && node --check public/transaction-records.js && node --check public/annual-summary.js && node --check public/router.js",
     "test": "node --test"
   },
   "engines": {

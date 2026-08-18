@@ -25,7 +25,7 @@ import { sortHoldings } from "./holding-sort.js";
 import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js";
 import { createHistoryDemoSnapshots } from "./history-demo-data.js";
 import { filterTransactions, normalizeTransactions, summarizeTransactions, transactionMetrics } from "./transaction-records.js";
-import { annualSummaryTotal, normalizeAnnualSummaries, summarizeAnnualRecords } from "./annual-summary.js";
+import { annualSummaryTotal, canLinkAnnualSummary, normalizeAnnualSummaries, resolveAnnualSummaries, summarizeAnnualRecords } from "./annual-summary.js";
 import { routeFromHash, titleForRoute } from "./router.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
@@ -127,6 +127,8 @@ const elements = {
   annualSummaryForm: document.querySelector("#annual-summary-form"),
   annualSummaryLabel: document.querySelector("#annual-summary-label"),
   annualSummaryOrder: document.querySelector("#annual-summary-order"),
+  annualSummaryLinked: document.querySelector("#annual-summary-linked"),
+  annualSummaryLinkedHint: document.querySelector("#annual-summary-linked-hint"),
   annualSummaryTwProfit: document.querySelector("#annual-summary-tw-profit"),
   annualSummaryDividend: document.querySelector("#annual-summary-dividend"),
   annualSummaryTwRate: document.querySelector("#annual-summary-tw-rate"),
@@ -580,15 +582,16 @@ function optionalPercent(value) {
 }
 
 function renderAnnualSummaries() {
-  const summary = summarizeAnnualRecords(state.annualSummaries);
+  const resolvedRecords = resolveAnnualSummaries(state.annualSummaries, state.transactions, USD_TO_TWD);
+  const summary = summarizeAnnualRecords(resolvedRecords);
   const totalNode = document.querySelector("#annual-summary-total");
   totalNode.textContent = money(summary.totalProfitTwd, "TW", true);
   totalNode.className = annualValueClass(summary.totalProfitTwd);
   document.querySelector("#annual-summary-count").textContent = `${state.annualSummaries.length} 筆獨立項目`;
-  elements.annualSummaryBody.innerHTML = state.annualSummaries.map(record => {
+  elements.annualSummaryBody.innerHTML = resolvedRecords.map(record => {
     const total = annualSummaryTotal(record);
     return `<tr>
-      <td><strong>${escapeHtml(record.label)}</strong></td>
+      <td><strong>${escapeHtml(record.label)}</strong>${record.linkedToTransactions ? '<span class="annual-linked-badge">自動連動</span>' : ""}</td>
       <td class="${annualValueClass(record.twProfit)}">${money(record.twProfit, "TW", true)}</td>
       <td class="${annualValueClass(record.dividend)}">${money(record.dividend, "TW", true)}</td>
       <td class="${record.twReturnRate === null ? "" : annualValueClass(record.twReturnRate)}">${optionalPercent(record.twReturnRate)}</td>
@@ -607,6 +610,23 @@ function setAnnualFormValue(input, value) {
   input.value = value === null || value === undefined ? "" : value;
 }
 
+function syncAnnualLinkForm() {
+  const linkable = canLinkAnnualSummary({ label: elements.annualSummaryLabel.value });
+  elements.annualSummaryLinked.disabled = !linkable;
+  if (!linkable) elements.annualSummaryLinked.checked = false;
+  const linked = linkable && elements.annualSummaryLinked.checked;
+  const autoInputs = [elements.annualSummaryTwProfit, elements.annualSummaryTwRate, elements.annualSummaryUsProfit, elements.annualSummaryUsRate, elements.annualSummaryUsTwd];
+  autoInputs.forEach(input => {
+    input.disabled = linked;
+    input.closest("label").classList.toggle("annual-auto-input", linked);
+  });
+  elements.annualSummaryLinkedHint.textContent = linked
+    ? `${elements.annualSummaryLabel.value.trim()} 年的台股與美股數字將依交易紀錄自動更新；股利仍可手動輸入。`
+    : linkable
+      ? "啟用後，台股與美股數字會依同年度交易紀錄自動更新；股利仍手動輸入。"
+      : "僅四位數年度可啟用；獨立個股資料維持手動輸入。";
+}
+
 function openAnnualSummaryDialog(recordId = null) {
   elements.annualSummaryForm.reset();
   state.editingAnnualSummaryId = recordId;
@@ -622,9 +642,11 @@ function openAnnualSummaryDialog(recordId = null) {
     setAnnualFormValue(elements.annualSummaryUsProfit, record.usProfitUsd);
     setAnnualFormValue(elements.annualSummaryUsRate, record.usReturnRate);
     setAnnualFormValue(elements.annualSummaryUsTwd, record.usProfitTwd);
+    elements.annualSummaryLinked.checked = record.linkedToTransactions;
   } else {
     elements.annualSummaryOrder.value = state.annualSummaries.length + 1;
   }
+  syncAnnualLinkForm();
   elements.annualSummaryFormError.textContent = "";
   elements.annualSummaryDialog.showModal();
   setTimeout(() => elements.annualSummaryLabel.focus(), 50);
@@ -648,7 +670,8 @@ async function addAnnualSummary(event) {
     twReturnRate: optionalNumericInput(elements.annualSummaryTwRate),
     usProfitUsd: numericInputOrZero(elements.annualSummaryUsProfit),
     usReturnRate: optionalNumericInput(elements.annualSummaryUsRate),
-    usProfitTwd: numericInputOrZero(elements.annualSummaryUsTwd)
+    usProfitTwd: numericInputOrZero(elements.annualSummaryUsTwd),
+    linkedToTransactions: elements.annualSummaryLinked.checked
   };
   const numericValues = [record.order, record.twProfit, record.dividend, record.usProfitUsd, record.usProfitTwd];
   const optionalValues = [record.twReturnRate, record.usReturnRate].filter(value => value !== null);
@@ -957,6 +980,8 @@ elements.historyRecordForm.addEventListener("submit", saveHistoryRecord);
 elements.transactionMarket.addEventListener("change", syncTransactionForm);
 elements.transactionForm.addEventListener("submit", addTransaction);
 elements.annualSummaryForm.addEventListener("submit", addAnnualSummary);
+elements.annualSummaryLabel.addEventListener("input", syncAnnualLinkForm);
+elements.annualSummaryLinked.addEventListener("change", syncAnnualLinkForm);
 elements.transactionYearFilter.addEventListener("change", () => {
   state.transactionYearFilter = elements.transactionYearFilter.value;
   renderTransactions();
@@ -1099,9 +1124,11 @@ observeAuthentication(user => {
   state.unsubscribeTransactions = observeTransactions(user.uid, records => {
     state.transactions = normalizeTransactions(records);
     renderTransactions();
+    renderAnnualSummaries();
   }, error => {
     state.transactions = [];
     renderTransactions();
+    renderAnnualSummaries();
     showToast(`交易紀錄讀取失敗：${friendlyFirebaseError(error)}`);
   });
   state.unsubscribeAnnualSummaries = observeAnnualSummaries(user.uid, records => {
