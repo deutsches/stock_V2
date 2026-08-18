@@ -237,7 +237,8 @@ function renderSummary() {
   const cashPercent = total.assets ? (total.cash / total.assets) * 100 : 0;
 
   document.querySelector("#total-assets").textContent = money(total.assets);
-  document.querySelector("#current-cash").textContent = money(total.cash);
+  document.querySelector("#current-cash-twd").textContent = `NT$${number(state.cash.twd)}`;
+  document.querySelector("#current-cash-usd").textContent = `US$${number(state.cash.usd)}`;
   document.querySelector("#total-cost").textContent = money(total.cost);
   setSignedMetric("#unrealized-profit", profit, "TW");
   document.querySelector("#unrealized-rate").textContent = `報酬率 ${percent(profitRate)}`;
@@ -388,7 +389,8 @@ function renderHistoryRecords(snapshots) {
       <td>${snapshotLabel(snapshot)}</td>
       <td>${money(snapshot.totalAssetsTwd)}</td>
       <td>${Number.isFinite(snapshot.marketValueTwd) ? money(snapshot.marketValueTwd) : "—"}</td>
-      <td>${Number.isFinite(snapshot.cashTwd) ? money(snapshot.cashTwd) : "—"}</td>
+      <td>${Number.isFinite(snapshot.cashTwdAmount) ? money(snapshot.cashTwdAmount) : "—"}</td>
+      <td>${Number.isFinite(snapshot.cashUsdAmount) ? money(snapshot.cashUsdAmount, "US") : "—"}</td>
       <td class="${change >= 0 ? "positive" : "negative"}">${previous ? money(change, "TW", true) : "—"}</td>
     </tr>`;
   }).join("");
@@ -423,8 +425,11 @@ function renderHistoryChart() {
     <text class="chart-axis-label" x="${point.x}" y="${model.height - 13}" text-anchor="middle">${snapshotLabel(point)}</text>
   `).join("");
   const points = model.points.map(point => {
+    const cashDetails = Number.isFinite(point.cashTwdAmount) && Number.isFinite(point.cashUsdAmount)
+      ? `${money(point.cashTwdAmount)} + ${money(point.cashUsdAmount, "US")}`
+      : money(point.cashTwd);
     const details = Number.isFinite(point.marketValueTwd)
-      ? `｜持股 ${money(point.marketValueTwd)}｜現金 ${money(point.cashTwd)}`
+      ? `｜持股 ${money(point.marketValueTwd)}｜現金 ${cashDetails}`
       : "｜手動補登，無明細";
     return `
     <circle class="chart-point" cx="${point.x}" cy="${point.assetsY}" r="4" tabindex="0">

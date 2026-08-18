@@ -24,6 +24,8 @@ export function normalizeSnapshots(records) {
       marketValueTwd: optionalNumber(snapshot?.total?.marketValueTwd),
       totalAssetsTwd: optionalNumber(snapshot?.total?.totalAssetsTwd ?? snapshot?.total?.marketValueTwd),
       cashTwd: snapshot?.slot === "manual" ? null : optionalNumber(snapshot?.cash?.totalTwd ?? 0),
+      cashTwdAmount: snapshot?.slot === "manual" ? null : optionalNumber(snapshot?.cash?.twd),
+      cashUsdAmount: snapshot?.slot === "manual" ? null : optionalNumber(snapshot?.cash?.usd),
       costTwd: optionalNumber(snapshot?.total?.costTwd),
       unrealizedProfitTwd: optionalNumber(snapshot?.total?.unrealizedProfitTwd),
       dailyChangeTwd: optionalNumber(snapshot?.total?.dailyChangeTwd),

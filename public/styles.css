@@ -53,10 +53,12 @@ button { cursor: pointer; }
 .main-content { width: 100%; max-width: 2200px; margin: 0 auto; padding: 54px clamp(32px, 3.5vw, 88px) 78px; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-bottom: 34px; }
 .page-actions { display: flex; align-items: center; gap: 12px; }
-.cash-balance { min-width: 130px; text-align: right; }
+.cash-balance { min-width: 190px; text-align: right; }
 .cash-balance small, .cash-balance strong { display: block; }
 .cash-balance small { margin-bottom: 4px; color: var(--muted); font-size: 9px; }
 .cash-balance strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+.cash-currency-values { display: flex; align-items: baseline; justify-content: flex-end; gap: 13px; }
+.cash-currency-values strong:last-child { color: var(--blue); }
 .eyebrow { margin: 0 0 9px; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .16em; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(31px, 4vw, 46px); font-weight: 500; letter-spacing: -.035em; }
@@ -125,7 +127,7 @@ h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-si
 .history-empty strong { color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 19px; font-weight: 500; }
 .history-empty span { margin-top: 8px; font-size: 11px; }
 .history-records { margin-top: 18px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
-.history-table { min-width: 760px; }
+.history-table { min-width: 900px; }
 .history-table th, .history-table td { text-align: right; }
 .history-table th:first-child, .history-table td:first-child { text-align: left; }
 

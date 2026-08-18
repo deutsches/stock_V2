@@ -59,7 +59,7 @@
             <p class="subtitle">這是你目前的投資組合狀況。</p>
           </div>
           <div class="page-actions">
-            <div class="cash-balance"><small>可用現金</small><strong id="current-cash">NT$0</strong></div>
+            <div class="cash-balance"><small>可用現金</small><div class="cash-currency-values"><strong id="current-cash-twd">NT$0</strong><strong id="current-cash-usd">US$0.00</strong></div></div>
             <button class="button secondary" id="open-cash-dialog" type="button">設定現金</button>
           </div>
         </header>
@@ -286,7 +286,7 @@
             </div>
             <div class="history-empty" id="history-empty">
               <strong>尚無可繪製的歷史資料</strong>
-              <span>系統每日 14:30 建立一筆收盤快照；累積後會自動顯示曲線。</span>
+              <span>系統每日 06:30 與 14:30 建立快照；累積後會自動顯示曲線。</span>
             </div>
           </section>
 
@@ -294,7 +294,7 @@
             <div class="section-heading"><div><h2>快照明細</h2><p id="history-record-count">0 筆紀錄</p></div></div>
             <div class="table-wrap">
               <table class="history-table">
-                <thead><tr><th>日期與時段</th><th>總資產</th><th>持股市值</th><th>現金</th><th>較前次變化</th></tr></thead>
+                <thead><tr><th>日期與時段</th><th>總資產</th><th>持股市值</th><th>台幣現金</th><th>美元現金</th><th>較前次變化</th></tr></thead>
                 <tbody id="history-records-body"></tbody>
               </table>
             </div>
