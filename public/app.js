@@ -459,7 +459,7 @@ function renderTransactions() {
   if (state.transactionYearFilter !== "ALL" && !availableYears.includes(Number(state.transactionYearFilter))) {
     state.transactionYearFilter = "ALL";
   }
-  elements.transactionYearFilter.innerHTML = `<option value="ALL">全部</option>${availableYears.map(year => `<option value="${year}">${year}</option>`).join("")}`;
+  elements.transactionYearFilter.innerHTML = `<option value="ALL">全選</option>${availableYears.map(year => `<option value="${year}">${year}</option>`).join("")}`;
   elements.transactionYearFilter.value = state.transactionYearFilter;
   const allRecords = state.transactionYearFilter === "ALL"
     ? marketRecords
@@ -482,7 +482,7 @@ function renderTransactions() {
   document.querySelectorAll(".transaction-twd-rate").forEach(node => {
     node.hidden = market !== "US";
   });
-  document.querySelector("#transaction-all-summary-label").textContent = state.transactionYearFilter === "ALL" ? "歷年損益" : `${state.transactionYearFilter} 年損益`;
+  document.querySelector("#transaction-all-summary-label").textContent = state.transactionYearFilter === "ALL" ? "歷年實際損益" : `${state.transactionYearFilter} 年實際損益`;
 
   elements.transactionYearBody.innerHTML = transactionRows(yearRecords);
   elements.transactionAllBody.innerHTML = transactionRows(allRecords, true);

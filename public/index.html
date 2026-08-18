@@ -169,7 +169,15 @@
 
           <div class="transaction-period-grid">
             <section class="transaction-panel" aria-labelledby="transaction-year-title">
-              <div class="section-heading transaction-heading"><div><p class="eyebrow">CURRENT YEAR</p><h2 id="transaction-year-title">今年紀錄</h2><p id="transaction-year-count">0 筆紀錄</p></div><div class="transaction-heading-summary"><small>今年損益</small><strong id="transaction-year-profit">NT$0</strong><span id="transaction-year-rate">0%</span><span class="transaction-twd-rate" id="transaction-year-profit-twd" hidden></span></div></div>
+              <div class="section-heading transaction-heading">
+                <div><p class="eyebrow">CURRENT YEAR</p><h2 id="transaction-year-title">今年紀錄</h2><p id="transaction-year-count">0 筆紀錄</p></div>
+                <div class="transaction-heading-summary">
+                  <small>今年實際損益</small>
+                  <div class="transaction-heading-values"><strong id="transaction-year-profit">NT$0</strong><span id="transaction-year-rate">0%</span></div>
+                  <span class="transaction-twd-rate" id="transaction-year-profit-twd" hidden></span>
+                </div>
+                <span class="transaction-heading-spacer" aria-hidden="true"></span>
+              </div>
               <div class="table-wrap">
                 <table class="transaction-table">
                   <thead><tr><th>標的</th><th>損益</th><th>賣價</th><th>報酬率</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
@@ -180,7 +188,15 @@
             </section>
 
             <section class="transaction-panel" aria-labelledby="transaction-all-title">
-              <div class="section-heading transaction-heading"><div><p class="eyebrow">ALL TIME</p><h2 id="transaction-all-title">歷年紀錄</h2><p id="transaction-all-count">0 筆紀錄</p></div><div class="transaction-heading-controls"><label>年份<select id="transaction-year-filter"><option value="ALL">全部</option></select></label><div class="transaction-heading-summary"><small id="transaction-all-summary-label">歷年損益</small><strong id="transaction-all-profit">NT$0</strong><span id="transaction-all-rate">0%</span><span class="transaction-twd-rate" id="transaction-all-profit-twd" hidden></span></div></div></div>
+              <div class="section-heading transaction-heading">
+                <div><p class="eyebrow">ALL TIME</p><h2 id="transaction-all-title">歷年紀錄</h2><p id="transaction-all-count">0 筆紀錄</p></div>
+                <div class="transaction-heading-summary">
+                  <small id="transaction-all-summary-label">歷年實際損益</small>
+                  <div class="transaction-heading-values"><strong id="transaction-all-profit">NT$0</strong><span id="transaction-all-rate">0%</span></div>
+                  <span class="transaction-twd-rate" id="transaction-all-profit-twd" hidden></span>
+                </div>
+                <label class="transaction-year-filter-label">篩選年份<select id="transaction-year-filter"><option value="ALL">全選</option></select></label>
+              </div>
               <div class="table-wrap">
                 <table class="transaction-table">
                   <thead><tr><th>年份</th><th>標的</th><th>損益</th><th>賣價</th><th>報酬率</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
