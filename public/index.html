@@ -331,7 +331,7 @@
         <p class="dialog-copy">成本與收入皆填入整筆交易總額，系統會自動計算已實現損益與報酬率。</p>
         <div class="form-grid">
           <label>市場<select id="transaction-market" required><option value="TW">台股</option><option value="US">美股</option></select></label>
-          <label>賣出日期<input id="transaction-date" type="date" required /></label>
+          <label>年份<input id="transaction-year" type="number" min="1900" max="2200" step="1" required /></label>
           <label>股票代號<input id="transaction-symbol" type="text" maxlength="16" placeholder="例如 2330 或 AAPL" required /></label>
           <label>顯示名稱<input id="transaction-name" type="text" maxlength="60" placeholder="台股請輸入中文名稱" /></label>
           <label>成本總額<div class="price-input"><span class="transaction-currency">NT$</span><input id="transaction-cost" type="number" min="0" step="any" required /></div></label>

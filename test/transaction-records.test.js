@@ -8,16 +8,16 @@ import {
 } from "../public/transaction-records.js";
 
 const records = {
-  older: { market: "US", soldDate: "2025-03-01", symbol: "aapl", name: "Apple", cost: 100, proceeds: 125, sellPrice: 250, createdAt: 1 },
-  newest: { market: "US", soldDate: "2026-08-18", symbol: "nvda", name: "NVIDIA", cost: 200, proceeds: 180, sellPrice: 90, createdAt: 2 },
-  tw: { market: "TW", soldDate: "2026-07-01", symbol: "2330", name: "台積電", cost: 1000, proceeds: 1200, sellPrice: 1200, createdAt: 3 },
-  invalid: { market: "US", soldDate: "bad", symbol: "", cost: -1, proceeds: 0, sellPrice: 0 }
+  older: { market: "US", year: 2025, symbol: "aapl", name: "Apple", cost: 100, proceeds: 125, sellPrice: 250, createdAt: 1 },
+  newest: { market: "US", year: 2026, symbol: "nvda", name: "NVIDIA", cost: 200, proceeds: 180, sellPrice: 90, createdAt: 2 },
+  tw: { market: "TW", year: 2026, symbol: "2330", name: "台積電", cost: 1000, proceeds: 1200, sellPrice: 1200, createdAt: 3 },
+  invalid: { market: "US", year: 1800, symbol: "", cost: -1, proceeds: 0, sellPrice: 0 }
 };
 
-test("交易紀錄會正規化、過濾無效資料並依日期倒序", () => {
+test("交易紀錄會正規化、過濾無效資料並依年份與建立時間倒序", () => {
   const transactions = normalizeTransactions(records);
   assert.equal(transactions.length, 3);
-  assert.deepEqual(transactions.map(record => record.id), ["newest", "tw", "older"]);
+  assert.deepEqual(transactions.map(record => record.id), ["tw", "newest", "older"]);
   assert.equal(transactions.at(-1).symbol, "AAPL");
 });
 

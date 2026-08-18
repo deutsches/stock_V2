@@ -122,7 +122,7 @@ export function saveTransaction(uid, transaction) {
   const transactionRef = push(ref(database, userPath(uid, "transactions")));
   return set(transactionRef, {
     market: transaction.market,
-    soldDate: transaction.soldDate,
+    year: transaction.year,
     symbol: transaction.symbol,
     name: transaction.name,
     cost: transaction.cost,

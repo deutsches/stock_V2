@@ -145,7 +145,6 @@ h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-si
 .transaction-table th:first-child, .transaction-table td:first-child { padding-left: 20px; }
 .transaction-table th:last-child, .transaction-table td:last-child { padding-right: 16px; }
 .transaction-table td { font-size: 12px; }
-.transaction-date { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; font-weight: 500; }
 .compact-empty { min-width: 0; padding: 48px 18px; }
 .transactions-page > .table-note { margin-top: 18px; border: 1px solid var(--line); border-radius: 10px; }
 

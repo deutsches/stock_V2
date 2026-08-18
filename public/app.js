@@ -100,7 +100,7 @@ const elements = {
   transactionDialog: document.querySelector("#transaction-dialog"),
   transactionForm: document.querySelector("#transaction-form"),
   transactionMarket: document.querySelector("#transaction-market"),
-  transactionDate: document.querySelector("#transaction-date"),
+  transactionYear: document.querySelector("#transaction-year"),
   transactionSymbol: document.querySelector("#transaction-symbol"),
   transactionName: document.querySelector("#transaction-name"),
   transactionCost: document.querySelector("#transaction-cost"),
@@ -431,8 +431,8 @@ function transactionRows(records, includeYear = false) {
     const metrics = transactionMetrics(record, USD_TO_TWD);
     const profitClass = metrics.profit >= 0 ? "positive" : "negative";
     return `<tr>
-      ${includeYear ? `<td>${record.soldDate.slice(0, 4)}</td>` : ""}
-      <td><strong title="${escapeHtml(record.symbol)}">${escapeHtml(transactionLabel(record))}</strong><small class="transaction-date">${record.soldDate.slice(5).replace("-", "/")}</small></td>
+      ${includeYear ? `<td>${record.year}</td>` : ""}
+      <td><strong title="${escapeHtml(record.symbol)}">${escapeHtml(transactionLabel(record))}</strong></td>
       <td>${money(record.cost, record.market)}</td>
       <td>${money(record.proceeds, record.market)}</td>
       <td class="${profitClass}">${money(metrics.profit, record.market, true)}</td>
@@ -505,7 +505,7 @@ function syncTransactionForm() {
 function openTransactionDialog() {
   elements.transactionForm.reset();
   elements.transactionMarket.value = state.transactionMarket;
-  elements.transactionDate.value = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei" }).format(new Date());
+  elements.transactionYear.value = taipeiYear();
   elements.transactionFormError.textContent = "";
   syncTransactionForm();
   elements.transactionDialog.showModal();
@@ -517,15 +517,15 @@ async function addTransaction(event) {
   const market = elements.transactionMarket.value;
   const transaction = {
     market,
-    soldDate: elements.transactionDate.value,
+    year: Number(elements.transactionYear.value),
     symbol: elements.transactionSymbol.value.trim().toUpperCase(),
     name: elements.transactionName.value.trim() || elements.transactionSymbol.value.trim().toUpperCase(),
     cost: Number(elements.transactionCost.value),
     proceeds: Number(elements.transactionProceeds.value),
     sellPrice: Number(elements.transactionSellPrice.value)
   };
-  if (!transaction.symbol || !/^\d{4}-\d{2}-\d{2}$/.test(transaction.soldDate) || (market === "TW" && !elements.transactionName.value.trim()) || ![transaction.cost, transaction.proceeds, transaction.sellPrice].every(value => Number.isFinite(value) && value >= 0)) {
-    elements.transactionFormError.textContent = "請確認日期、標的、成本、收入與賣出價格均已正確填寫。";
+  if (!transaction.symbol || !Number.isInteger(transaction.year) || transaction.year < 1900 || transaction.year > 2200 || (market === "TW" && !elements.transactionName.value.trim()) || ![transaction.cost, transaction.proceeds, transaction.sellPrice].every(value => Number.isFinite(value) && value >= 0)) {
+    elements.transactionFormError.textContent = "請確認年份、標的、成本、收入與賣出價格均已正確填寫。";
     return;
   }
   try {
@@ -539,7 +539,7 @@ async function addTransaction(event) {
 
 async function removeTransactionRecord(transactionId) {
   const record = state.transactions.find(transaction => transaction.id === transactionId);
-  if (!record || !window.confirm(`確定刪除 ${transactionLabel(record)} ${record.soldDate} 的賣出紀錄？`)) return;
+  if (!record || !window.confirm(`確定刪除 ${transactionLabel(record)} ${record.year} 年的賣出紀錄？`)) return;
   try {
     await deleteTransaction(state.user.uid, transactionId);
     showToast(`${transactionLabel(record)} 的紀錄已刪除`);

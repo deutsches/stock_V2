@@ -5,7 +5,7 @@ export function normalizeTransactions(records) {
     .map(([id, record]) => ({
       id,
       market: record?.market,
-      soldDate: record?.soldDate,
+      year: Number(record?.year || String(record?.soldDate || "").slice(0, 4)),
       symbol: String(record?.symbol || "").trim().toUpperCase(),
       name: String(record?.name || "").trim(),
       cost: Number(record?.cost),
@@ -15,13 +15,13 @@ export function normalizeTransactions(records) {
     }))
     .filter(record =>
       ["TW", "US"].includes(record.market) &&
-      /^\d{4}-\d{2}-\d{2}$/.test(record.soldDate) &&
+      Number.isInteger(record.year) && record.year >= 1900 && record.year <= 2200 &&
       record.symbol &&
       Number.isFinite(record.cost) && record.cost >= 0 &&
       Number.isFinite(record.proceeds) && record.proceeds >= 0 &&
       Number.isFinite(record.sellPrice) && record.sellPrice >= 0
     )
-    .sort((a, b) => b.soldDate.localeCompare(a.soldDate) || (b.createdAt || 0) - (a.createdAt || 0));
+    .sort((a, b) => b.year - a.year || (b.createdAt || 0) - (a.createdAt || 0));
 }
 
 export function transactionMetrics(record, exchangeRate = 30.33) {
@@ -48,6 +48,6 @@ export function summarizeTransactions(records, exchangeRate = 30.33) {
 export function filterTransactions(records, market, year = null) {
   return records.filter(record =>
     record.market === market &&
-    (year === null || Number(record.soldDate.slice(0, 4)) === Number(year))
+    (year === null || record.year === Number(year))
   );
 }
