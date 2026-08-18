@@ -15,6 +15,8 @@ export function createHistoryDemoSnapshots() {
     const movement = day * 4100 + Math.sin(day * 0.72) * 26000 - (day > 20 && day < 25 ? 32000 : 0);
     const marketValueTwd = costTwd + 78000 + movement;
     const cashTwd = 180000 - day * 1800 + (day >= 16 ? 60000 : 0);
+    const cashUsdAmount = 2500;
+    const cashTwdAmount = cashTwd - cashUsdAmount * exchangeRate;
     const totalAssetsTwd = marketValueTwd + cashTwd;
     const dailyChangeTwd = previousValue ? totalAssetsTwd - previousValue : 0;
     const twMarketValue = marketValueTwd * (0.58 + Math.sin(day / 6) * 0.025);
@@ -28,6 +30,8 @@ export function createHistoryDemoSnapshots() {
       marketValueTwd,
       totalAssetsTwd,
       cashTwd,
+      cashTwdAmount,
+      cashUsdAmount,
       costTwd,
       unrealizedProfitTwd: marketValueTwd - costTwd,
       dailyChangeTwd,

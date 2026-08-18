@@ -8,7 +8,7 @@ const records = {
   "2026-08-09_1430": { localDate: "2026-08-09", slot: "1430", createdAt: Date.parse("2026-08-09T14:30:00+08:00"), total: { marketValueTwd: 1100, costTwd: 900 } },
   invalid: { localDate: "2026-08-11", slot: "1430", total: { marketValueTwd: "bad", costTwd: 900 } },
   "2026-08-17_0630": { localDate: "2026-08-17", slot: "0630", createdAt: Date.parse("2026-08-17T06:30:00+08:00"), total: { marketValueTwd: 1200, costTwd: 950 } },
-  "2026-08-17_1430": { localDate: "2026-08-17", slot: "1430", createdAt: Date.parse("2026-08-17T14:30:00+08:00"), cash: { totalTwd: 100 }, total: { marketValueTwd: 1250, totalAssetsTwd: 1350, costTwd: 950 } }
+  "2026-08-17_1430": { localDate: "2026-08-17", slot: "1430", createdAt: Date.parse("2026-08-17T14:30:00+08:00"), cash: { twd: 40, usd: 2, totalTwd: 100.66 }, total: { marketValueTwd: 1250, totalAssetsTwd: 1350.66, costTwd: 950 } }
 };
 
 test("正規化快照會過濾無效資料並依時間排序", () => {
@@ -16,8 +16,10 @@ test("正規化快照會過濾無效資料並依時間排序", () => {
   assert.equal(snapshots.length, 4);
   assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-01-01_manual", "2026-08-09_1430", "2026-08-17_0630", "2026-08-17_1430"]);
   assert.equal(snapshots[0].marketValueTwd, null);
-  assert.equal(snapshots.at(-1).totalAssetsTwd, 1350);
-  assert.equal(snapshots.at(-1).cashTwd, 100);
+  assert.equal(snapshots.at(-1).totalAssetsTwd, 1350.66);
+  assert.equal(snapshots.at(-1).cashTwd, 100.66);
+  assert.equal(snapshots.at(-1).cashTwdAmount, 40);
+  assert.equal(snapshots.at(-1).cashUsdAmount, 2);
 });
 
 test("歷史範圍以最新快照往前篩選", () => {
