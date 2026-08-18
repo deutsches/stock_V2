@@ -1,15 +1,18 @@
 import {
   createSnapshotIfMissing,
+  deleteTransaction,
   observeAuthentication,
   observeCashBalances,
   observeConnection,
   observeHoldings,
   observeSnapshots,
+  observeTransactions,
   observeServerTimeOffset,
   replaceHoldings,
   replaceSnapshot,
   saveCashBalances,
   saveManualAssetRecord,
+  saveTransaction,
   signInWithGoogle,
   signOutUser
 } from "./firebase-service.js";
@@ -17,6 +20,7 @@ import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler
 import { sortHoldings } from "./holding-sort.js";
 import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js";
 import { createHistoryDemoSnapshots } from "./history-demo-data.js";
+import { filterTransactions, normalizeTransactions, summarizeTransactions, transactionMetrics } from "./transaction-records.js";
 import { routeFromHash, titleForRoute } from "./router.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
@@ -30,7 +34,10 @@ const state = {
   unsubscribeHoldings: null,
   unsubscribeCash: null,
   unsubscribeSnapshots: null,
+  unsubscribeTransactions: null,
   snapshots: [],
+  transactions: [],
+  transactionMarket: "TW",
   historyRange: "YTD",
   historyDemo: false,
   firebaseLoaded: false,
@@ -90,6 +97,21 @@ const elements = {
   historyDemoNotice: document.querySelector("#history-demo-notice"),
   historyRecordsBody: document.querySelector("#history-records-body"),
   historyRecordCount: document.querySelector("#history-record-count"),
+  transactionDialog: document.querySelector("#transaction-dialog"),
+  transactionForm: document.querySelector("#transaction-form"),
+  transactionMarket: document.querySelector("#transaction-market"),
+  transactionDate: document.querySelector("#transaction-date"),
+  transactionSymbol: document.querySelector("#transaction-symbol"),
+  transactionName: document.querySelector("#transaction-name"),
+  transactionCost: document.querySelector("#transaction-cost"),
+  transactionProceeds: document.querySelector("#transaction-proceeds"),
+  transactionSellPrice: document.querySelector("#transaction-sell-price"),
+  transactionProfitPreview: document.querySelector("#transaction-profit-preview"),
+  transactionFormError: document.querySelector("#transaction-form-error"),
+  transactionYearBody: document.querySelector("#transaction-year-body"),
+  transactionAllBody: document.querySelector("#transaction-all-body"),
+  transactionYearEmpty: document.querySelector("#transaction-year-empty"),
+  transactionAllEmpty: document.querySelector("#transaction-all-empty"),
   toast: document.querySelector("#toast")
 };
 
@@ -396,6 +418,136 @@ function renderHistoryChart() {
   `;
 }
 
+function taipeiYear() {
+  return Number(new Intl.DateTimeFormat("en", { timeZone: "Asia/Taipei", year: "numeric" }).format(new Date()));
+}
+
+function transactionLabel(record) {
+  return record.market === "TW" ? record.name : record.symbol;
+}
+
+function transactionRows(records, includeYear = false) {
+  return records.map(record => {
+    const metrics = transactionMetrics(record, USD_TO_TWD);
+    const profitClass = metrics.profit >= 0 ? "positive" : "negative";
+    return `<tr>
+      ${includeYear ? `<td>${record.soldDate.slice(0, 4)}</td>` : ""}
+      <td><strong title="${escapeHtml(record.symbol)}">${escapeHtml(transactionLabel(record))}</strong><small class="transaction-date">${record.soldDate.slice(5).replace("-", "/")}</small></td>
+      <td>${money(record.cost, record.market)}</td>
+      <td>${money(record.proceeds, record.market)}</td>
+      <td class="${profitClass}">${money(metrics.profit, record.market, true)}</td>
+      ${includeYear ? "" : `<td>${money(record.sellPrice, record.market)}</td>`}
+      <td class="${profitClass}">${percent(metrics.profitRate)}</td>
+      <td class="action-column"><button class="row-action" data-delete-transaction="${escapeHtml(record.id)}" aria-label="刪除 ${escapeHtml(transactionLabel(record))} 紀錄" title="刪除紀錄">×</button></td>
+    </tr>`;
+  }).join("");
+}
+
+function setTransactionMetric(id, value, market, signed = false) {
+  const node = document.querySelector(`#${id}`);
+  node.textContent = money(value, market, signed);
+  if (signed) {
+    node.classList.toggle("positive", value >= 0);
+    node.classList.toggle("negative", value < 0);
+  }
+}
+
+function renderTransactions() {
+  const market = state.transactionMarket;
+  const allRecords = filterTransactions(state.transactions, market);
+  const yearRecords = filterTransactions(state.transactions, market, taipeiYear());
+  const yearSummary = summarizeTransactions(yearRecords, USD_TO_TWD);
+  const allSummary = summarizeTransactions(allRecords, USD_TO_TWD);
+  const yearRate = yearSummary.cost ? (yearSummary.profit / yearSummary.cost) * 100 : 0;
+  const allRate = allSummary.cost ? (allSummary.profit / allSummary.cost) * 100 : 0;
+
+  setTransactionMetric("transaction-year-cost", yearSummary.cost, market);
+  setTransactionMetric("transaction-year-proceeds", yearSummary.proceeds, market);
+  setTransactionMetric("transaction-year-profit", yearSummary.profit, market, true);
+  setTransactionMetric("transaction-all-profit", allSummary.profit, market, true);
+  document.querySelector("#transaction-year-rate").textContent = percent(yearRate);
+  document.querySelector("#transaction-all-rate").textContent = percent(allRate);
+  document.querySelector("#transaction-year-rate").className = yearSummary.profit >= 0 ? "positive" : "negative";
+  document.querySelector("#transaction-all-rate").className = allSummary.profit >= 0 ? "positive" : "negative";
+  const yearProfitTwd = document.querySelector("#transaction-year-profit-twd");
+  const allProfitTwd = document.querySelector("#transaction-all-profit-twd");
+  yearProfitTwd.textContent = money(yearSummary.profitTwd, "TW", true);
+  yearProfitTwd.className = yearSummary.profitTwd >= 0 ? "positive" : "negative";
+  allProfitTwd.textContent = money(allSummary.profitTwd, "TW", true);
+  allProfitTwd.className = allSummary.profitTwd >= 0 ? "positive" : "negative";
+  document.querySelectorAll(".transaction-twd-summary").forEach(node => {
+    node.hidden = market !== "US";
+  });
+
+  elements.transactionYearBody.innerHTML = transactionRows(yearRecords);
+  elements.transactionAllBody.innerHTML = transactionRows(allRecords, true);
+  elements.transactionYearEmpty.hidden = yearRecords.length > 0;
+  elements.transactionAllEmpty.hidden = allRecords.length > 0;
+  elements.transactionYearBody.closest("table").hidden = yearRecords.length === 0;
+  elements.transactionAllBody.closest("table").hidden = allRecords.length === 0;
+  document.querySelector("#transaction-year-count").textContent = `${yearRecords.length} 筆紀錄`;
+  document.querySelector("#transaction-all-count").textContent = `${allRecords.length} 筆紀錄`;
+}
+
+function syncTransactionForm() {
+  const market = elements.transactionMarket.value;
+  const currency = market === "US" ? "US$" : "NT$";
+  document.querySelectorAll(".transaction-currency").forEach(node => { node.textContent = currency; });
+  elements.transactionName.required = market === "TW";
+  elements.transactionName.placeholder = market === "TW" ? "例如 台積電" : "可留空，頁面顯示股票代號";
+  const cost = Number(elements.transactionCost.value) || 0;
+  const proceeds = Number(elements.transactionProceeds.value) || 0;
+  const profit = proceeds - cost;
+  elements.transactionProfitPreview.textContent = money(profit, market, true);
+  elements.transactionProfitPreview.className = profit >= 0 ? "positive" : "negative";
+}
+
+function openTransactionDialog() {
+  elements.transactionForm.reset();
+  elements.transactionMarket.value = state.transactionMarket;
+  elements.transactionDate.value = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei" }).format(new Date());
+  elements.transactionFormError.textContent = "";
+  syncTransactionForm();
+  elements.transactionDialog.showModal();
+  setTimeout(() => elements.transactionSymbol.focus(), 50);
+}
+
+async function addTransaction(event) {
+  event.preventDefault();
+  const market = elements.transactionMarket.value;
+  const transaction = {
+    market,
+    soldDate: elements.transactionDate.value,
+    symbol: elements.transactionSymbol.value.trim().toUpperCase(),
+    name: elements.transactionName.value.trim() || elements.transactionSymbol.value.trim().toUpperCase(),
+    cost: Number(elements.transactionCost.value),
+    proceeds: Number(elements.transactionProceeds.value),
+    sellPrice: Number(elements.transactionSellPrice.value)
+  };
+  if (!transaction.symbol || !/^\d{4}-\d{2}-\d{2}$/.test(transaction.soldDate) || (market === "TW" && !elements.transactionName.value.trim()) || ![transaction.cost, transaction.proceeds, transaction.sellPrice].every(value => Number.isFinite(value) && value >= 0)) {
+    elements.transactionFormError.textContent = "請確認日期、標的、成本、收入與賣出價格均已正確填寫。";
+    return;
+  }
+  try {
+    await saveTransaction(state.user.uid, transaction);
+    elements.transactionDialog.close();
+    showToast(`${transaction.name} 的賣出紀錄已新增`);
+  } catch (error) {
+    elements.transactionFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
+  }
+}
+
+async function removeTransactionRecord(transactionId) {
+  const record = state.transactions.find(transaction => transaction.id === transactionId);
+  if (!record || !window.confirm(`確定刪除 ${transactionLabel(record)} ${record.soldDate} 的賣出紀錄？`)) return;
+  try {
+    await deleteTransaction(state.user.uid, transactionId);
+    showToast(`${transactionLabel(record)} 的紀錄已刪除`);
+  } catch (error) {
+    showToast(`刪除失敗：${friendlyFirebaseError(error)}`);
+  }
+}
+
 function openPriceDialog(key = state.holdings[0] ? holdingKey(state.holdings[0]) : "") {
   elements.symbol.innerHTML = state.holdings.map(item => `<option value="${escapeHtml(holdingKey(item))}">${escapeHtml(item.symbol)} · ${escapeHtml(item.name)}</option>`).join("");
   elements.symbol.value = key;
@@ -649,9 +801,9 @@ async function checkAssetSnapshot(replaceExisting = false) {
   }
 }
 
-document.querySelectorAll(".market-tab").forEach(button => {
+document.querySelectorAll("[data-market]").forEach(button => {
   button.addEventListener("click", () => {
-    document.querySelectorAll(".market-tab").forEach(tab => tab.classList.remove("active"));
+    document.querySelectorAll("[data-market]").forEach(tab => tab.classList.remove("active"));
     button.classList.add("active");
     state.market = button.dataset.market;
     renderHoldings();
@@ -664,11 +816,16 @@ document.querySelectorAll("[data-close-dialog]").forEach(button => {
 document.querySelector("#open-holding-dialog").addEventListener("click", openHoldingDialog);
 document.querySelector("#open-cash-dialog").addEventListener("click", openCashDialog);
 document.querySelector("#open-history-record-dialog").addEventListener("click", openHistoryRecordDialog);
+document.querySelector("#open-transaction-dialog").addEventListener("click", openTransactionDialog);
 document.querySelector("#delete-holding").addEventListener("click", deleteHolding);
 elements.cashTwd.addEventListener("input", renderCashPreview);
 elements.cashUsd.addEventListener("input", renderCashPreview);
 elements.cashForm.addEventListener("submit", saveCash);
 elements.historyRecordForm.addEventListener("submit", saveHistoryRecord);
+elements.transactionMarket.addEventListener("change", syncTransactionForm);
+elements.transactionCost.addEventListener("input", syncTransactionForm);
+elements.transactionProceeds.addEventListener("input", syncTransactionForm);
+elements.transactionForm.addEventListener("submit", addTransaction);
 elements.holdingMarket.addEventListener("change", syncHoldingCurrency);
 elements.holdingShares.addEventListener("input", syncHoldingCurrency);
 elements.holdingTotalCost.addEventListener("input", syncHoldingCurrency);
@@ -686,6 +843,18 @@ elements.form.addEventListener("submit", savePrice);
 elements.body.addEventListener("click", event => {
   const button = event.target.closest("[data-update-key]");
   if (button) openPriceDialog(button.dataset.updateKey);
+});
+document.querySelectorAll("[data-transaction-market]").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-transaction-market]").forEach(tab => tab.classList.remove("active"));
+    button.classList.add("active");
+    state.transactionMarket = button.dataset.transactionMarket;
+    renderTransactions();
+  });
+});
+document.querySelector(".transactions-page").addEventListener("click", event => {
+  const button = event.target.closest("[data-delete-transaction]");
+  if (button) removeTransactionRecord(button.dataset.deleteTransaction);
 });
 document.querySelectorAll("[data-history-range]").forEach(button => {
   button.addEventListener("click", () => {
@@ -737,9 +906,11 @@ observeAuthentication(user => {
   state.unsubscribeHoldings?.();
   state.unsubscribeCash?.();
   state.unsubscribeSnapshots?.();
+  state.unsubscribeTransactions?.();
   state.unsubscribeHoldings = null;
   state.unsubscribeCash = null;
   state.unsubscribeSnapshots = null;
+  state.unsubscribeTransactions = null;
   state.user = user;
   state.firebaseLoaded = false;
   state.cashLoaded = false;
@@ -748,7 +919,9 @@ observeAuthentication(user => {
     state.holdings = [];
     state.cash = { twd: 0, usd: 0 };
     state.snapshots = [];
+    state.transactions = [];
     renderHistoryChart();
+    renderTransactions();
     elements.appShell.hidden = true;
     elements.authScreen.hidden = false;
     elements.authMessage.textContent = "請使用已啟用的 Google 帳號登入";
@@ -776,6 +949,14 @@ observeAuthentication(user => {
     state.snapshots = [];
     renderHistoryChart();
     showToast(`歷史資料讀取失敗：${friendlyFirebaseError(error)}`);
+  });
+  state.unsubscribeTransactions = observeTransactions(user.uid, records => {
+    state.transactions = normalizeTransactions(records);
+    renderTransactions();
+  }, error => {
+    state.transactions = [];
+    renderTransactions();
+    showToast(`交易紀錄讀取失敗：${friendlyFirebaseError(error)}`);
   });
   state.unsubscribeHoldings = observeHoldings(user.uid, async holdings => {
     if (!state.firebaseLoaded) {

@@ -9,7 +9,9 @@ import {
 import {
   getDatabase,
   onValue,
+  push,
   ref,
+  remove,
   runTransaction,
   serverTimestamp,
   set
@@ -76,6 +78,12 @@ export function observeSnapshots(uid, onData, onError) {
   }, onError);
 }
 
+export function observeTransactions(uid, onData, onError) {
+  return onValue(ref(database, userPath(uid, "transactions")), snapshot => {
+    onData(snapshot.val());
+  }, onError);
+}
+
 export function replaceHoldings(uid, holdings) {
   const records = holdings.reduce((result, holding) => {
     result[firebaseHoldingKey(holding)] = {
@@ -108,6 +116,24 @@ export function saveManualAssetRecord(uid, localDate, totalAssetsTwd) {
     total: { totalAssetsTwd },
     createdAt: serverTimestamp()
   });
+}
+
+export function saveTransaction(uid, transaction) {
+  const transactionRef = push(ref(database, userPath(uid, "transactions")));
+  return set(transactionRef, {
+    market: transaction.market,
+    soldDate: transaction.soldDate,
+    symbol: transaction.symbol,
+    name: transaction.name,
+    cost: transaction.cost,
+    proceeds: transaction.proceeds,
+    sellPrice: transaction.sellPrice,
+    createdAt: serverTimestamp()
+  });
+}
+
+export function deleteTransaction(uid, transactionId) {
+  return remove(ref(database, userPath(uid, `transactions/${transactionId}`)));
 }
 
 export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {

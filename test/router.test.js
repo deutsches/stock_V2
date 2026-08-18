@@ -13,3 +13,9 @@ test("資產歷史網址會切換歷史頁與標題", () => {
   assert.equal(routeFromHash("#/HISTORY"), "history");
   assert.equal(titleForRoute("history"), "StockV2｜資產歷史");
 });
+
+test("交易紀錄網址會切換交易頁與標題", () => {
+  assert.equal(routeFromHash("#/transactions"), "transactions");
+  assert.equal(routeFromHash("#/TRANSACTIONS"), "transactions");
+  assert.equal(titleForRoute("transactions"), "StockV2｜交易紀錄");
+});

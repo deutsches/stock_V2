@@ -129,6 +129,26 @@ h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-si
 .history-table th, .history-table td { text-align: right; }
 .history-table th:first-child, .history-table td:first-child { text-align: left; }
 
+.transaction-market-tabs { width: fit-content; margin-bottom: 18px; }
+.transaction-summary-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.transaction-summary-grid article { min-width: 0; padding: 20px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.transaction-summary-grid small, .transaction-summary-grid strong, .transaction-summary-grid span { display: block; }
+.transaction-summary-grid small { margin-bottom: 11px; color: var(--muted); font-size: 10px; font-weight: 700; }
+.transaction-summary-grid strong { overflow: hidden; font-family: Georgia, "Times New Roman", serif; font-size: 23px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.transaction-summary-grid span { margin-top: 7px; color: var(--muted); font-size: 10px; }
+.transaction-period-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.transaction-panel { min-width: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.transaction-panel .section-heading { padding: 23px 25px 18px; }
+.transaction-panel .section-heading .eyebrow { margin-bottom: 5px; }
+.transaction-table { min-width: 720px; }
+.transaction-table th, .transaction-table td { padding: 15px 13px; font-size: 11px; }
+.transaction-table th:first-child, .transaction-table td:first-child { padding-left: 20px; }
+.transaction-table th:last-child, .transaction-table td:last-child { padding-right: 16px; }
+.transaction-table td { font-size: 12px; }
+.transaction-date { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; font-weight: 500; }
+.compact-empty { min-width: 0; padding: 48px 18px; }
+.transactions-page > .table-note { margin-top: 18px; border: 1px solid var(--line); border-radius: 10px; }
+
 .market-breakdown { margin-top: 24px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
 .breakdown-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 23px 27px 17px; border-bottom: 1px solid var(--line); }
 .breakdown-heading .eyebrow { margin-bottom: 5px; }
@@ -252,6 +272,8 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .market-summary-list { grid-template-columns: 1fr; }
   .market-summary-item.us-summary-item { grid-template-columns: minmax(120px, 1.25fr) repeat(5, minmax(90px, 1fr)); }
   .market-summary-item + .market-summary-item { border-top: 1px solid var(--line); border-left: 0; }
+  .transaction-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .transaction-period-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
   .app-shell { display: block; }
@@ -268,6 +290,7 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .holdings-controls { width: 100%; }.holdings-controls .market-tabs { flex: 1; }
   .history-section { padding: 22px 20px 16px; }
   .history-stats { grid-template-columns: 1fr 1fr; }
+  .transaction-market-tabs { width: 100%; }
 }
 @media (max-width: 500px) {
   .summary-grid { grid-template-columns: 1fr; }.primary-card { grid-column: auto; }
@@ -284,4 +307,5 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .history-range { flex: 1; }
   .history-legend { justify-content: flex-start; }
   .history-stats { grid-template-columns: 1fr; }
+  .transaction-summary-grid { grid-template-columns: 1fr; }
 }

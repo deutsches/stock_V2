@@ -6,6 +6,7 @@ StockV2 使用既有 Firebase 專案 `stock-bf37a`，資料存放在 Realtime Da
 stockV2/users/{uid}/holdings
 stockV2/users/{uid}/cash
 stockV2/users/{uid}/snapshots
+stockV2/users/{uid}/transactions
 ```
 
 既有股票程式的其他節點不會被讀取或修改。
@@ -51,3 +52,7 @@ StockV2 規則只允許已登入使用者讀寫與自己 UID 相同的路徑：
 檢查時機包含登入後、持股載入後、每五分鐘、分頁重新取得焦點、分頁恢復顯示及網路重新連線。網站關閉時不會執行。
 
 歷史頁也可以手動補登只有日期與總資產的舊基準。這類資料以 `{YYYY-MM-DD}_manual` 儲存，沒有推測當時的持股市值或現金組成；圖表只繪製總資產點，明細欄位顯示為「—」。
+
+## 已賣出交易紀錄
+
+交易紀錄儲存在 `stockV2/users/{uid}/transactions/{transactionId}`，台股與美股皆保存賣出日期、股票代號、名稱、成本、收入及賣出價格。損益與報酬率由頁面即時計算，不另外保存；美股台幣損益暫依固定匯率 `1 USD = NT$30.33` 換算。
