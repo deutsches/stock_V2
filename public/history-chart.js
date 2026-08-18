@@ -42,12 +42,7 @@ export function normalizeSnapshots(records) {
     )
     .sort((a, b) => a.timestamp - b.timestamp);
 
-  return [...snapshots.reduce((byDate, snapshot) => {
-    const current = byDate.get(snapshot.localDate);
-    const priority = { "0630": 1, manual: 2, "1430": 3 };
-    if (!current || priority[snapshot.slot] > priority[current.slot]) byDate.set(snapshot.localDate, snapshot);
-    return byDate;
-  }, new Map()).values()];
+  return snapshots;
 }
 
 export function calculateHistoryStats(snapshots) {

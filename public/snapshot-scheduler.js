@@ -26,10 +26,10 @@ export function getCurrentSnapshotSlot(now = new Date(), serverTimeOffsetMs = 0)
   const adjustedDate = new Date(now.getTime() + serverTimeOffsetMs);
   const parts = taipeiParts(adjustedDate);
   const minutes = Number(parts.hour) * 60 + Number(parts.minute);
-  if (minutes < 14 * 60 + 30) return null;
+  if (minutes < 6 * 60 + 30) return null;
 
   const date = `${parts.year}-${parts.month}-${parts.day}`;
-  const slot = "1430";
+  const slot = minutes < 14 * 60 + 30 ? "0630" : "1430";
   return { id: `${date}_${slot}`, date, slot };
 }
 

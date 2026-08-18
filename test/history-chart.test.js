@@ -13,8 +13,8 @@ const records = {
 
 test("正規化快照會過濾無效資料並依時間排序", () => {
   const snapshots = normalizeSnapshots(records);
-  assert.equal(snapshots.length, 3);
-  assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-01-01_manual", "2026-08-09_1430", "2026-08-17_1430"]);
+  assert.equal(snapshots.length, 4);
+  assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-01-01_manual", "2026-08-09_1430", "2026-08-17_0630", "2026-08-17_1430"]);
   assert.equal(snapshots[0].marketValueTwd, null);
   assert.equal(snapshots.at(-1).totalAssetsTwd, 1350);
   assert.equal(snapshots.at(-1).cashTwd, 100);
@@ -22,15 +22,15 @@ test("正規化快照會過濾無效資料並依時間排序", () => {
 
 test("歷史範圍以最新快照往前篩選", () => {
   const snapshots = normalizeSnapshots(records);
-  assert.equal(filterSnapshotsByRange(snapshots, "7").length, 1);
-  assert.equal(filterSnapshotsByRange(snapshots, "30").length, 2);
-  assert.equal(filterSnapshotsByRange(snapshots, "YTD").length, 3);
-  assert.equal(filterSnapshotsByRange(snapshots, "ALL").length, 3);
+  assert.equal(filterSnapshotsByRange(snapshots, "7").length, 2);
+  assert.equal(filterSnapshotsByRange(snapshots, "30").length, 3);
+  assert.equal(filterSnapshotsByRange(snapshots, "YTD").length, 4);
+  assert.equal(filterSnapshotsByRange(snapshots, "ALL").length, 4);
 });
 
 test("曲線模型會產生總資產與持股市值路徑", () => {
   const model = buildHistoryChartModel(normalizeSnapshots(records));
-  assert.equal(model.points.length, 3);
+  assert.equal(model.points.length, 4);
   assert.match(model.assetsPath, /^M .+ L /);
   assert.match(model.holdingsPath, /^M .+ L /);
   assert.equal(model.yTicks.length, 5);

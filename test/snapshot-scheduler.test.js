@@ -2,8 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "../public/snapshot-scheduler.js";
 
-test("14:30 前不建立快照", () => {
-  assert.equal(getCurrentSnapshotSlot(new Date("2026-08-17T06:29:00Z")), null);
+test("06:30 前不建立快照", () => {
+  assert.equal(getCurrentSnapshotSlot(new Date("2026-08-16T22:29:00Z")), null);
+});
+
+test("06:30 後使用美股收盤時段", () => {
+  assert.deepEqual(getCurrentSnapshotSlot(new Date("2026-08-16T22:30:00Z")), {
+    id: "2026-08-17_0630",
+    date: "2026-08-17",
+    slot: "0630"
+  });
+  assert.deepEqual(getCurrentSnapshotSlot(new Date("2026-08-17T06:29:00Z")), {
+    id: "2026-08-17_0630",
+    date: "2026-08-17",
+    slot: "0630"
+  });
 });
 
 test("14:30 後只使用每日收盤時段", () => {
