@@ -10,7 +10,7 @@ export function normalizeTransactions(records) {
         year: Number(record?.year || String(record?.soldDate || "").slice(0, 4)),
         symbol: String(record?.symbol || "").trim().toUpperCase(),
         name: String(record?.name || "").trim(),
-        sellPrice: Number(record?.sellPrice),
+        sellPrice: record?.sellPrice === null || record?.sellPrice === undefined || record?.sellPrice === "" ? null : Number(record.sellPrice),
         profit: metrics.profit,
         profitRate: metrics.profitRate,
         costBasis: metrics.costBasis,
@@ -23,7 +23,7 @@ export function normalizeTransactions(records) {
       record.symbol &&
       Number.isFinite(record.profit) &&
       Number.isFinite(record.profitRate) &&
-      Number.isFinite(record.sellPrice) && record.sellPrice >= 0
+      (record.sellPrice === null || (Number.isFinite(record.sellPrice) && record.sellPrice >= 0))
     )
     .sort((a, b) => b.year - a.year || (b.createdAt || 0) - (a.createdAt || 0));
 }

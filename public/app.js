@@ -435,7 +435,7 @@ function transactionRows(records, includeYear = false) {
       ${includeYear ? `<td>${record.year}</td>` : ""}
       <td><strong title="${escapeHtml(record.symbol)}">${escapeHtml(transactionLabel(record))}</strong></td>
       <td class="${profitClass}">${money(metrics.profit, record.market, true)}</td>
-      <td>${money(record.sellPrice, record.market)}</td>
+      <td>${record.sellPrice === null ? "—" : money(record.sellPrice, record.market)}</td>
       <td class="${profitClass}">${percent(metrics.profitRate)}</td>
       <td class="action-column"><button class="row-action" data-delete-transaction="${escapeHtml(record.id)}" aria-label="刪除 ${escapeHtml(transactionLabel(record))} 紀錄" title="刪除紀錄">×</button></td>
     </tr>`;
@@ -522,10 +522,10 @@ async function addTransaction(event) {
     name: elements.transactionName.value.trim() || elements.transactionSymbol.value.trim().toUpperCase(),
     profit: Number(elements.transactionProfit.value),
     profitRate: Number(elements.transactionProfitRate.value),
-    sellPrice: Number(elements.transactionSellPrice.value)
+    sellPrice: elements.transactionSellPrice.value === "" ? null : Number(elements.transactionSellPrice.value)
   };
-  if (!transaction.symbol || !Number.isInteger(transaction.year) || transaction.year < 1900 || transaction.year > 2200 || (market === "TW" && !elements.transactionName.value.trim()) || !Number.isFinite(transaction.profit) || !Number.isFinite(transaction.profitRate) || !Number.isFinite(transaction.sellPrice) || transaction.sellPrice < 0) {
-    elements.transactionFormError.textContent = "請確認年份、標的、損益、報酬率與賣出價格均已正確填寫。";
+  if (!transaction.symbol || !Number.isInteger(transaction.year) || transaction.year < 1900 || transaction.year > 2200 || (market === "TW" && !elements.transactionName.value.trim()) || !Number.isFinite(transaction.profit) || !Number.isFinite(transaction.profitRate) || (transaction.sellPrice !== null && (!Number.isFinite(transaction.sellPrice) || transaction.sellPrice < 0))) {
+    elements.transactionFormError.textContent = "請確認年份、標的、損益與報酬率均已正確填寫。";
     return;
   }
   try {
