@@ -173,7 +173,7 @@
             </div>
             <div class="table-wrap">
               <table class="annual-summary-table">
-                <thead><tr><th>名稱／年度</th><th>台股損益</th><th>股利</th><th>台股報酬率</th><th>美股損益</th><th>美股報酬率</th><th>美股換台幣</th><th>合計損益</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
+                <thead><tr><th>名稱／年度</th><th>台股損益</th><th>股利</th><th>台股報酬率</th><th>美股損益</th><th>美股報酬率</th><th>美股換台幣</th><th>合計損益</th><th class="action-column annual-actions-column"><span class="sr-only">操作</span></th></tr></thead>
                 <tbody id="annual-summary-body"></tbody>
               </table>
               <div class="empty-state compact-empty" id="annual-summary-empty"><strong>尚無年度總記錄</strong><span>每個年度或個股都可以作為獨立項目新增。</span></div>
@@ -381,7 +381,7 @@
 
     <dialog id="annual-summary-dialog">
       <form method="dialog" id="annual-summary-form" autocomplete="off">
-        <div class="dialog-header"><div><p class="eyebrow">YEARLY PERFORMANCE</p><h2>新增年度總記錄</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <div class="dialog-header"><div><p class="eyebrow">YEARLY PERFORMANCE</p><h2 id="annual-summary-dialog-title">新增年度總記錄</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
         <p class="dialog-copy">名稱可以填年份或個股；未使用的金額與報酬率欄位可以留空。</p>
         <div class="form-grid">
           <label>名稱／年度<input id="annual-summary-label" type="text" maxlength="60" placeholder="例如 2026 或 00675L" required /></label>
@@ -394,7 +394,7 @@
           <label>美股換台幣<div class="price-input"><span>NT$</span><input id="annual-summary-us-twd" type="number" step="any" /></div></label>
         </div>
         <p class="form-error" id="annual-summary-form-error" role="alert"></p>
-        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存總記錄</button></div>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" id="annual-summary-submit" type="submit">儲存總記錄</button></div>
       </form>
     </dialog>
 

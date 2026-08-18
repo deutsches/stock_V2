@@ -17,7 +17,8 @@ import {
   saveManualAssetRecord,
   saveTransaction,
   signInWithGoogle,
-  signOutUser
+  signOutUser,
+  updateAnnualSummary
 } from "./firebase-service.js";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 import { sortHoldings } from "./holding-sort.js";
@@ -43,6 +44,7 @@ const state = {
   snapshots: [],
   transactions: [],
   annualSummaries: [],
+  editingAnnualSummaryId: null,
   transactionMarket: "TW",
   transactionYearFilter: "ALL",
   historyRange: "YTD",
@@ -120,6 +122,8 @@ const elements = {
   transactionYearEmpty: document.querySelector("#transaction-year-empty"),
   transactionAllEmpty: document.querySelector("#transaction-all-empty"),
   annualSummaryDialog: document.querySelector("#annual-summary-dialog"),
+  annualSummaryDialogTitle: document.querySelector("#annual-summary-dialog-title"),
+  annualSummarySubmit: document.querySelector("#annual-summary-submit"),
   annualSummaryForm: document.querySelector("#annual-summary-form"),
   annualSummaryLabel: document.querySelector("#annual-summary-label"),
   annualSummaryOrder: document.querySelector("#annual-summary-order"),
@@ -592,16 +596,35 @@ function renderAnnualSummaries() {
       <td class="${record.usReturnRate === null ? "" : annualValueClass(record.usReturnRate)}">${optionalPercent(record.usReturnRate)}</td>
       <td class="${annualValueClass(record.usProfitTwd)}">${money(record.usProfitTwd, "TW", true)}</td>
       <td class="${annualValueClass(total)}"><strong>${money(total, "TW", true)}</strong></td>
-      <td class="action-column"><button class="row-action" data-delete-annual-summary="${escapeHtml(record.id)}" aria-label="刪除 ${escapeHtml(record.label)} 總記錄" title="刪除總記錄">×</button></td>
+      <td class="action-column annual-actions-column"><div class="annual-row-actions"><button class="row-edit" data-edit-annual-summary="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${escapeHtml(record.label)} 總記錄">編輯</button><button class="row-action" data-delete-annual-summary="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${escapeHtml(record.label)} 總記錄" title="刪除總記錄">×</button></div></td>
     </tr>`;
   }).join("");
   elements.annualSummaryEmpty.hidden = state.annualSummaries.length > 0;
   elements.annualSummaryBody.closest("table").hidden = state.annualSummaries.length === 0;
 }
 
-function openAnnualSummaryDialog() {
+function setAnnualFormValue(input, value) {
+  input.value = value === null || value === undefined ? "" : value;
+}
+
+function openAnnualSummaryDialog(recordId = null) {
   elements.annualSummaryForm.reset();
-  elements.annualSummaryOrder.value = state.annualSummaries.length + 1;
+  state.editingAnnualSummaryId = recordId;
+  const record = recordId ? state.annualSummaries.find(item => item.id === recordId) : null;
+  elements.annualSummaryDialogTitle.textContent = record ? `編輯 ${record.label}` : "新增年度總記錄";
+  elements.annualSummarySubmit.textContent = record ? "儲存修改" : "儲存總記錄";
+  if (record) {
+    setAnnualFormValue(elements.annualSummaryLabel, record.label);
+    setAnnualFormValue(elements.annualSummaryOrder, record.order);
+    setAnnualFormValue(elements.annualSummaryTwProfit, record.twProfit);
+    setAnnualFormValue(elements.annualSummaryDividend, record.dividend);
+    setAnnualFormValue(elements.annualSummaryTwRate, record.twReturnRate);
+    setAnnualFormValue(elements.annualSummaryUsProfit, record.usProfitUsd);
+    setAnnualFormValue(elements.annualSummaryUsRate, record.usReturnRate);
+    setAnnualFormValue(elements.annualSummaryUsTwd, record.usProfitTwd);
+  } else {
+    elements.annualSummaryOrder.value = state.annualSummaries.length + 1;
+  }
   elements.annualSummaryFormError.textContent = "";
   elements.annualSummaryDialog.showModal();
   setTimeout(() => elements.annualSummaryLabel.focus(), 50);
@@ -634,9 +657,12 @@ async function addAnnualSummary(event) {
     return;
   }
   try {
-    await saveAnnualSummary(state.user.uid, record);
+    const editing = state.editingAnnualSummaryId;
+    if (editing) await updateAnnualSummary(state.user.uid, editing, record);
+    else await saveAnnualSummary(state.user.uid, record);
     elements.annualSummaryDialog.close();
-    showToast(`${record.label} 的年度總記錄已新增`);
+    state.editingAnnualSummaryId = null;
+    showToast(`${record.label} 的年度總記錄已${editing ? "更新" : "新增"}`);
   } catch (error) {
     elements.annualSummaryFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
   }
@@ -922,7 +948,7 @@ document.querySelector("#open-holding-dialog").addEventListener("click", openHol
 document.querySelector("#open-cash-dialog").addEventListener("click", openCashDialog);
 document.querySelector("#open-history-record-dialog").addEventListener("click", openHistoryRecordDialog);
 document.querySelector("#open-transaction-dialog").addEventListener("click", openTransactionDialog);
-document.querySelector("#open-annual-summary-dialog").addEventListener("click", openAnnualSummaryDialog);
+document.querySelector("#open-annual-summary-dialog").addEventListener("click", () => openAnnualSummaryDialog());
 document.querySelector("#delete-holding").addEventListener("click", deleteHolding);
 elements.cashTwd.addEventListener("input", renderCashPreview);
 elements.cashUsd.addEventListener("input", renderCashPreview);
@@ -967,6 +993,8 @@ document.querySelector(".transactions-page").addEventListener("click", event => 
   if (button) removeTransactionRecord(button.dataset.deleteTransaction);
 });
 document.querySelector(".annual-summary-page").addEventListener("click", event => {
+  const editButton = event.target.closest("[data-edit-annual-summary]");
+  if (editButton) openAnnualSummaryDialog(editButton.dataset.editAnnualSummary);
   const annualButton = event.target.closest("[data-delete-annual-summary]");
   if (annualButton) removeAnnualSummaryRecord(annualButton.dataset.deleteAnnualSummary);
 });

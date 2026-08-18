@@ -14,7 +14,8 @@ import {
   remove,
   runTransaction,
   serverTimestamp,
-  set
+  set,
+  update
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -154,6 +155,20 @@ export function saveAnnualSummary(uid, record) {
     usProfitTwd: record.usProfitTwd,
     order: record.order,
     createdAt: serverTimestamp()
+  });
+}
+
+export function updateAnnualSummary(uid, recordId, record) {
+  return update(ref(database, userPath(uid, `annualSummaries/${recordId}`)), {
+    label: record.label,
+    twProfit: record.twProfit,
+    dividend: record.dividend,
+    twReturnRate: record.twReturnRate,
+    usProfitUsd: record.usProfitUsd,
+    usReturnRate: record.usReturnRate,
+    usProfitTwd: record.usProfitTwd,
+    order: record.order,
+    updatedAt: serverTimestamp()
   });
 }
 
