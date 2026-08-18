@@ -38,6 +38,7 @@ const state = {
   snapshots: [],
   transactions: [],
   transactionMarket: "TW",
+  transactionYearFilter: "ALL",
   historyRange: "YTD",
   historyDemo: false,
   firebaseLoaded: false,
@@ -103,10 +104,10 @@ const elements = {
   transactionYear: document.querySelector("#transaction-year"),
   transactionSymbol: document.querySelector("#transaction-symbol"),
   transactionName: document.querySelector("#transaction-name"),
-  transactionCost: document.querySelector("#transaction-cost"),
-  transactionProceeds: document.querySelector("#transaction-proceeds"),
+  transactionProfit: document.querySelector("#transaction-profit"),
+  transactionProfitRate: document.querySelector("#transaction-profit-rate"),
   transactionSellPrice: document.querySelector("#transaction-sell-price"),
-  transactionProfitPreview: document.querySelector("#transaction-profit-preview"),
+  transactionYearFilter: document.querySelector("#transaction-year-filter"),
   transactionFormError: document.querySelector("#transaction-form-error"),
   transactionYearBody: document.querySelector("#transaction-year-body"),
   transactionAllBody: document.querySelector("#transaction-all-body"),
@@ -433,10 +434,8 @@ function transactionRows(records, includeYear = false) {
     return `<tr>
       ${includeYear ? `<td>${record.year}</td>` : ""}
       <td><strong title="${escapeHtml(record.symbol)}">${escapeHtml(transactionLabel(record))}</strong></td>
-      <td>${money(record.cost, record.market)}</td>
-      <td>${money(record.proceeds, record.market)}</td>
       <td class="${profitClass}">${money(metrics.profit, record.market, true)}</td>
-      ${includeYear ? "" : `<td>${money(record.sellPrice, record.market)}</td>`}
+      <td>${money(record.sellPrice, record.market)}</td>
       <td class="${profitClass}">${percent(metrics.profitRate)}</td>
       <td class="action-column"><button class="row-action" data-delete-transaction="${escapeHtml(record.id)}" aria-label="刪除 ${escapeHtml(transactionLabel(record))} 紀錄" title="刪除紀錄">×</button></td>
     </tr>`;
@@ -454,30 +453,36 @@ function setTransactionMetric(id, value, market, signed = false) {
 
 function renderTransactions() {
   const market = state.transactionMarket;
-  const allRecords = filterTransactions(state.transactions, market);
+  const marketRecords = filterTransactions(state.transactions, market);
   const yearRecords = filterTransactions(state.transactions, market, taipeiYear());
+  const availableYears = [...new Set(marketRecords.map(record => record.year))].sort((a, b) => b - a);
+  if (state.transactionYearFilter !== "ALL" && !availableYears.includes(Number(state.transactionYearFilter))) {
+    state.transactionYearFilter = "ALL";
+  }
+  elements.transactionYearFilter.innerHTML = `<option value="ALL">全部</option>${availableYears.map(year => `<option value="${year}">${year}</option>`).join("")}`;
+  elements.transactionYearFilter.value = state.transactionYearFilter;
+  const allRecords = state.transactionYearFilter === "ALL"
+    ? marketRecords
+    : filterTransactions(state.transactions, market, Number(state.transactionYearFilter));
   const yearSummary = summarizeTransactions(yearRecords, USD_TO_TWD);
   const allSummary = summarizeTransactions(allRecords, USD_TO_TWD);
-  const yearRate = yearSummary.cost ? (yearSummary.profit / yearSummary.cost) * 100 : 0;
-  const allRate = allSummary.cost ? (allSummary.profit / allSummary.cost) * 100 : 0;
 
-  setTransactionMetric("transaction-year-cost", yearSummary.cost, market);
-  setTransactionMetric("transaction-year-proceeds", yearSummary.proceeds, market);
   setTransactionMetric("transaction-year-profit", yearSummary.profit, market, true);
   setTransactionMetric("transaction-all-profit", allSummary.profit, market, true);
-  document.querySelector("#transaction-year-rate").textContent = percent(yearRate);
-  document.querySelector("#transaction-all-rate").textContent = percent(allRate);
+  document.querySelector("#transaction-year-rate").textContent = percent(yearSummary.profitRate);
+  document.querySelector("#transaction-all-rate").textContent = percent(allSummary.profitRate);
   document.querySelector("#transaction-year-rate").className = yearSummary.profit >= 0 ? "positive" : "negative";
   document.querySelector("#transaction-all-rate").className = allSummary.profit >= 0 ? "positive" : "negative";
   const yearProfitTwd = document.querySelector("#transaction-year-profit-twd");
   const allProfitTwd = document.querySelector("#transaction-all-profit-twd");
-  yearProfitTwd.textContent = money(yearSummary.profitTwd, "TW", true);
+  yearProfitTwd.textContent = `約 ${money(yearSummary.profitTwd, "TW", true)} · 匯率 30.33`;
   yearProfitTwd.className = yearSummary.profitTwd >= 0 ? "positive" : "negative";
-  allProfitTwd.textContent = money(allSummary.profitTwd, "TW", true);
+  allProfitTwd.textContent = `約 ${money(allSummary.profitTwd, "TW", true)} · 匯率 30.33`;
   allProfitTwd.className = allSummary.profitTwd >= 0 ? "positive" : "negative";
-  document.querySelectorAll(".transaction-twd-summary").forEach(node => {
+  document.querySelectorAll(".transaction-twd-rate").forEach(node => {
     node.hidden = market !== "US";
   });
+  document.querySelector("#transaction-all-summary-label").textContent = state.transactionYearFilter === "ALL" ? "歷年損益" : `${state.transactionYearFilter} 年損益`;
 
   elements.transactionYearBody.innerHTML = transactionRows(yearRecords);
   elements.transactionAllBody.innerHTML = transactionRows(allRecords, true);
@@ -495,11 +500,6 @@ function syncTransactionForm() {
   document.querySelectorAll(".transaction-currency").forEach(node => { node.textContent = currency; });
   elements.transactionName.required = market === "TW";
   elements.transactionName.placeholder = market === "TW" ? "例如 台積電" : "可留空，頁面顯示股票代號";
-  const cost = Number(elements.transactionCost.value) || 0;
-  const proceeds = Number(elements.transactionProceeds.value) || 0;
-  const profit = proceeds - cost;
-  elements.transactionProfitPreview.textContent = money(profit, market, true);
-  elements.transactionProfitPreview.className = profit >= 0 ? "positive" : "negative";
 }
 
 function openTransactionDialog() {
@@ -520,12 +520,12 @@ async function addTransaction(event) {
     year: Number(elements.transactionYear.value),
     symbol: elements.transactionSymbol.value.trim().toUpperCase(),
     name: elements.transactionName.value.trim() || elements.transactionSymbol.value.trim().toUpperCase(),
-    cost: Number(elements.transactionCost.value),
-    proceeds: Number(elements.transactionProceeds.value),
+    profit: Number(elements.transactionProfit.value),
+    profitRate: Number(elements.transactionProfitRate.value),
     sellPrice: Number(elements.transactionSellPrice.value)
   };
-  if (!transaction.symbol || !Number.isInteger(transaction.year) || transaction.year < 1900 || transaction.year > 2200 || (market === "TW" && !elements.transactionName.value.trim()) || ![transaction.cost, transaction.proceeds, transaction.sellPrice].every(value => Number.isFinite(value) && value >= 0)) {
-    elements.transactionFormError.textContent = "請確認年份、標的、成本、收入與賣出價格均已正確填寫。";
+  if (!transaction.symbol || !Number.isInteger(transaction.year) || transaction.year < 1900 || transaction.year > 2200 || (market === "TW" && !elements.transactionName.value.trim()) || !Number.isFinite(transaction.profit) || !Number.isFinite(transaction.profitRate) || !Number.isFinite(transaction.sellPrice) || transaction.sellPrice < 0) {
+    elements.transactionFormError.textContent = "請確認年份、標的、損益、報酬率與賣出價格均已正確填寫。";
     return;
   }
   try {
@@ -823,9 +823,11 @@ elements.cashUsd.addEventListener("input", renderCashPreview);
 elements.cashForm.addEventListener("submit", saveCash);
 elements.historyRecordForm.addEventListener("submit", saveHistoryRecord);
 elements.transactionMarket.addEventListener("change", syncTransactionForm);
-elements.transactionCost.addEventListener("input", syncTransactionForm);
-elements.transactionProceeds.addEventListener("input", syncTransactionForm);
 elements.transactionForm.addEventListener("submit", addTransaction);
+elements.transactionYearFilter.addEventListener("change", () => {
+  state.transactionYearFilter = elements.transactionYearFilter.value;
+  renderTransactions();
+});
 elements.holdingMarket.addEventListener("change", syncHoldingCurrency);
 elements.holdingShares.addEventListener("input", syncHoldingCurrency);
 elements.holdingTotalCost.addEventListener("input", syncHoldingCurrency);
@@ -849,6 +851,7 @@ document.querySelectorAll("[data-transaction-market]").forEach(button => {
     document.querySelectorAll("[data-transaction-market]").forEach(tab => tab.classList.remove("active"));
     button.classList.add("active");
     state.transactionMarket = button.dataset.transactionMarket;
+    state.transactionYearFilter = "ALL";
     renderTransactions();
   });
 });

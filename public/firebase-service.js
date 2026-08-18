@@ -125,8 +125,8 @@ export function saveTransaction(uid, transaction) {
     year: transaction.year,
     symbol: transaction.symbol,
     name: transaction.name,
-    cost: transaction.cost,
-    proceeds: transaction.proceeds,
+    profit: transaction.profit,
+    profitRate: transaction.profitRate,
     sellPrice: transaction.sellPrice,
     createdAt: serverTimestamp()
   });

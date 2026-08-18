@@ -55,4 +55,4 @@ StockV2 規則只允許已登入使用者讀寫與自己 UID 相同的路徑：
 
 ## 已賣出交易紀錄
 
-交易紀錄儲存在 `stockV2/users/{uid}/transactions/{transactionId}`，台股與美股皆保存年份、股票代號、名稱、成本、收入及賣出價格。損益與報酬率由頁面即時計算，不另外保存；美股台幣損益暫依固定匯率 `1 USD = NT$30.33` 換算。讀取時仍相容早期含 `soldDate` 的測試資料。
+交易紀錄儲存在 `stockV2/users/{uid}/transactions/{transactionId}`，新紀錄保存年份、股票代號、名稱、已實現損益、報酬率及賣出價格；美股台幣損益暫依固定匯率 `1 USD = NT$30.33` 換算。讀取時仍相容早期含 `soldDate`，或以成本與收入計算損益的資料。

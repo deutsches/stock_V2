@@ -33,14 +33,16 @@ test("損益、報酬率與美股台幣損益計算正確", () => {
   assert.equal(metrics.profit, 25);
   assert.equal(metrics.profitRate, 25);
   assert.equal(metrics.profitTwd, 758.25);
+  const entered = transactionMetrics({ market: "TW", profit: -50, profitRate: -10 });
+  assert.equal(entered.costBasis, 500);
 });
 
-test("交易摘要會加總成本、收入與損益", () => {
+test("交易摘要會加總損益並用成本基礎計算整體報酬率", () => {
   const transactions = filterTransactions(normalizeTransactions(records), "US");
   assert.deepEqual(summarizeTransactions(transactions, 30.33), {
-    cost: 300,
-    proceeds: 305,
+    costBasis: 300,
     profit: 5,
-    profitTwd: 151.65
+    profitTwd: 151.65,
+    profitRate: 1.6667
   });
 });

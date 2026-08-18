@@ -157,7 +157,7 @@
             <div>
               <p class="eyebrow">REALIZED RETURNS</p>
               <h1>交易紀錄</h1>
-              <p class="subtitle">整理已賣出股票的成本、收入與已實現損益。</p>
+              <p class="subtitle">整理已賣出股票的損益、報酬率與賣出價格。</p>
             </div>
             <button class="button primary" id="open-transaction-dialog" type="button">＋ 新增賣出紀錄</button>
           </header>
@@ -167,21 +167,12 @@
             <button class="market-tab" data-transaction-market="US" role="tab">美股</button>
           </div>
 
-          <section class="transaction-summary-grid" aria-label="已實現損益摘要">
-            <article><small>今年成本</small><strong id="transaction-year-cost">NT$0</strong></article>
-            <article><small>今年收入</small><strong id="transaction-year-proceeds">NT$0</strong></article>
-            <article><small>今年損益</small><strong id="transaction-year-profit">NT$0</strong><span id="transaction-year-rate">0%</span></article>
-            <article><small>歷年損益</small><strong id="transaction-all-profit">NT$0</strong><span id="transaction-all-rate">0%</span></article>
-            <article class="transaction-twd-summary" hidden><small>今年台幣損益</small><strong id="transaction-year-profit-twd">NT$0</strong><span>匯率 30.33</span></article>
-            <article class="transaction-twd-summary" hidden><small>歷年台幣損益</small><strong id="transaction-all-profit-twd">NT$0</strong><span>匯率 30.33</span></article>
-          </section>
-
           <div class="transaction-period-grid">
             <section class="transaction-panel" aria-labelledby="transaction-year-title">
-              <div class="section-heading"><div><p class="eyebrow">CURRENT YEAR</p><h2 id="transaction-year-title">今年紀錄</h2><p id="transaction-year-count">0 筆紀錄</p></div></div>
+              <div class="section-heading transaction-heading"><div><p class="eyebrow">CURRENT YEAR</p><h2 id="transaction-year-title">今年紀錄</h2><p id="transaction-year-count">0 筆紀錄</p></div><div class="transaction-heading-summary"><small>今年損益</small><strong id="transaction-year-profit">NT$0</strong><span id="transaction-year-rate">0%</span><span class="transaction-twd-rate" id="transaction-year-profit-twd" hidden></span></div></div>
               <div class="table-wrap">
                 <table class="transaction-table">
-                  <thead><tr><th>標的</th><th>成本</th><th>收入</th><th>損益</th><th>賣價</th><th>報酬率</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
+                  <thead><tr><th>標的</th><th>損益</th><th>賣價</th><th>報酬率</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
                   <tbody id="transaction-year-body"></tbody>
                 </table>
                 <div class="empty-state compact-empty" id="transaction-year-empty"><strong>今年尚無賣出紀錄</strong><span>使用「新增賣出紀錄」建立第一筆資料。</span></div>
@@ -189,17 +180,17 @@
             </section>
 
             <section class="transaction-panel" aria-labelledby="transaction-all-title">
-              <div class="section-heading"><div><p class="eyebrow">ALL TIME</p><h2 id="transaction-all-title">歷年紀錄</h2><p id="transaction-all-count">0 筆紀錄</p></div></div>
+              <div class="section-heading transaction-heading"><div><p class="eyebrow">ALL TIME</p><h2 id="transaction-all-title">歷年紀錄</h2><p id="transaction-all-count">0 筆紀錄</p></div><div class="transaction-heading-controls"><label>年份<select id="transaction-year-filter"><option value="ALL">全部</option></select></label><div class="transaction-heading-summary"><small id="transaction-all-summary-label">歷年損益</small><strong id="transaction-all-profit">NT$0</strong><span id="transaction-all-rate">0%</span><span class="transaction-twd-rate" id="transaction-all-profit-twd" hidden></span></div></div></div>
               <div class="table-wrap">
                 <table class="transaction-table">
-                  <thead><tr><th>年份</th><th>標的</th><th>成本</th><th>收入</th><th>損益</th><th>報酬率</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
+                  <thead><tr><th>年份</th><th>標的</th><th>損益</th><th>賣價</th><th>報酬率</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
                   <tbody id="transaction-all-body"></tbody>
                 </table>
                 <div class="empty-state compact-empty" id="transaction-all-empty"><strong>尚無歷年賣出紀錄</strong><span>新增的紀錄會依年份自動排序。</span></div>
               </div>
             </section>
           </div>
-          <p class="table-note">成本與收入請輸入實際總額，可將手續費與交易稅直接反映在已實現損益中。美股台幣損益依 1 USD = NT$30.33 換算。</p>
+          <p class="table-note">請依券商對帳結果輸入實際損益與報酬率；美股台幣損益依 1 USD = NT$30.33 換算。</p>
         </div>
 
         <div class="route-page history-page" data-route-page="history" hidden>
@@ -328,16 +319,15 @@
     <dialog id="transaction-dialog">
       <form method="dialog" id="transaction-form" autocomplete="off">
         <div class="dialog-header"><div><p class="eyebrow">SOLD POSITION</p><h2>新增賣出紀錄</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
-        <p class="dialog-copy">成本與收入皆填入整筆交易總額，系統會自動計算已實現損益與報酬率。</p>
+        <p class="dialog-copy">依券商或試算表結果，直接填入已實現損益、報酬率與賣出價格。</p>
         <div class="form-grid">
           <label>市場<select id="transaction-market" required><option value="TW">台股</option><option value="US">美股</option></select></label>
           <label>年份<input id="transaction-year" type="number" min="1900" max="2200" step="1" required /></label>
           <label>股票代號<input id="transaction-symbol" type="text" maxlength="16" placeholder="例如 2330 或 AAPL" required /></label>
           <label>顯示名稱<input id="transaction-name" type="text" maxlength="60" placeholder="台股請輸入中文名稱" /></label>
-          <label>成本總額<div class="price-input"><span class="transaction-currency">NT$</span><input id="transaction-cost" type="number" min="0" step="any" required /></div></label>
-          <label>收入總額<div class="price-input"><span class="transaction-currency">NT$</span><input id="transaction-proceeds" type="number" min="0" step="any" required /></div></label>
+          <label>損益<div class="price-input"><span class="transaction-currency">NT$</span><input id="transaction-profit" type="number" step="any" required /></div></label>
+          <label>報酬率<div class="price-input"><input id="transaction-profit-rate" type="number" step="any" required /><span>%</span></div></label>
           <label class="full-field">賣出價格<div class="price-input"><span class="transaction-currency">NT$</span><input id="transaction-sell-price" type="number" min="0" step="any" required /></div></label>
-          <div class="calculated-field full-field"><small>預估已實現損益</small><strong id="transaction-profit-preview">NT$0</strong></div>
         </div>
         <p class="form-error" id="transaction-form-error" role="alert"></p>
         <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">儲存紀錄</button></div>
