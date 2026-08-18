@@ -14,7 +14,8 @@ import {
   remove,
   runTransaction,
   serverTimestamp,
-  set
+  set,
+  update
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -84,6 +85,12 @@ export function observeTransactions(uid, onData, onError) {
   }, onError);
 }
 
+export function observeAnnualSummaries(uid, onData, onError) {
+  return onValue(ref(database, userPath(uid, "annualSummaries")), snapshot => {
+    onData(snapshot.val());
+  }, onError);
+}
+
 export function replaceHoldings(uid, holdings) {
   const records = holdings.reduce((result, holding) => {
     result[firebaseHoldingKey(holding)] = {
@@ -134,6 +141,41 @@ export function saveTransaction(uid, transaction) {
 
 export function deleteTransaction(uid, transactionId) {
   return remove(ref(database, userPath(uid, `transactions/${transactionId}`)));
+}
+
+export function saveAnnualSummary(uid, record) {
+  const summaryRef = push(ref(database, userPath(uid, "annualSummaries")));
+  return set(summaryRef, {
+    label: record.label,
+    twProfit: record.twProfit,
+    dividend: record.dividend,
+    twReturnRate: record.twReturnRate,
+    usProfitUsd: record.usProfitUsd,
+    usReturnRate: record.usReturnRate,
+    usProfitTwd: record.usProfitTwd,
+    linkedToTransactions: record.linkedToTransactions,
+    order: record.order,
+    createdAt: serverTimestamp()
+  });
+}
+
+export function updateAnnualSummary(uid, recordId, record) {
+  return update(ref(database, userPath(uid, `annualSummaries/${recordId}`)), {
+    label: record.label,
+    twProfit: record.twProfit,
+    dividend: record.dividend,
+    twReturnRate: record.twReturnRate,
+    usProfitUsd: record.usProfitUsd,
+    usReturnRate: record.usReturnRate,
+    usProfitTwd: record.usProfitTwd,
+    linkedToTransactions: record.linkedToTransactions,
+    order: record.order,
+    updatedAt: serverTimestamp()
+  });
+}
+
+export function deleteAnnualSummary(uid, recordId) {
+  return remove(ref(database, userPath(uid, `annualSummaries/${recordId}`)));
 }
 
 export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {
