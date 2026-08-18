@@ -160,6 +160,7 @@ h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-si
 .annual-summary-total small { margin-bottom: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
 .annual-summary-total strong { font-family: Georgia, "Times New Roman", serif; font-size: 28px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .annual-summary-heading .button { justify-self: end; }
+.annual-summary-heading-spacer { min-width: 180px; }
 .annual-summary-table { min-width: 1040px; }
 .annual-summary-table th, .annual-summary-table td { padding: 16px 14px; text-align: right; }
 .annual-summary-table th:first-child, .annual-summary-table td:first-child { padding-left: 24px; text-align: left; }
@@ -309,6 +310,7 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .transaction-heading { width: 100%; }
   .annual-summary-heading { grid-template-columns: 1fr auto; }
   .annual-summary-total { grid-row: 2; grid-column: 1 / -1; justify-self: start; text-align: left; }
+  .annual-summary-heading-spacer { display: none; }
 }
 @media (max-width: 500px) {
   .summary-grid { grid-template-columns: 1fr; }.primary-card { grid-column: auto; }

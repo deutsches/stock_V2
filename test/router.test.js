@@ -19,3 +19,9 @@ test("交易紀錄網址會切換交易頁與標題", () => {
   assert.equal(routeFromHash("#/TRANSACTIONS"), "transactions");
   assert.equal(titleForRoute("transactions"), "StockV2｜交易紀錄");
 });
+
+test("年度績效網址會切換獨立頁面與標題", () => {
+  assert.equal(routeFromHash("#/annual-summary"), "annual-summary");
+  assert.equal(routeFromHash("#/ANNUAL-SUMMARY"), "annual-summary");
+  assert.equal(titleForRoute("annual-summary"), "StockV2｜年度績效");
+});

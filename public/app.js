@@ -965,6 +965,8 @@ document.querySelectorAll("[data-transaction-market]").forEach(button => {
 document.querySelector(".transactions-page").addEventListener("click", event => {
   const button = event.target.closest("[data-delete-transaction]");
   if (button) removeTransactionRecord(button.dataset.deleteTransaction);
+});
+document.querySelector(".annual-summary-page").addEventListener("click", event => {
   const annualButton = event.target.closest("[data-delete-annual-summary]");
   if (annualButton) removeAnnualSummaryRecord(annualButton.dataset.deleteAnnualSummary);
 });

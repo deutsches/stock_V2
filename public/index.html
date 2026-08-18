@@ -33,6 +33,9 @@
           <a class="nav-item" href="#/transactions" data-route-link="transactions">
             <span class="nav-icon">↕</span><span>交易紀錄</span>
           </a>
+          <a class="nav-item" href="#/annual-summary" data-route-link="annual-summary">
+            <span class="nav-icon">年</span><span>年度績效</span>
+          </a>
           <a class="nav-item" href="#/history" data-route-link="history">
             <span class="nav-icon">◷</span><span>資產歷史</span>
           </a>
@@ -152,21 +155,21 @@
         </section>
         </div>
 
-        <div class="route-page transactions-page" data-route-page="transactions" hidden>
+        <div class="route-page annual-summary-page" data-route-page="annual-summary" hidden>
           <header class="page-header">
             <div>
-              <p class="eyebrow">REALIZED RETURNS</p>
-              <h1>交易紀錄</h1>
-              <p class="subtitle">整理已賣出股票的損益、報酬率與賣出價格。</p>
+              <p class="eyebrow">YEARLY PERFORMANCE</p>
+              <h1>年度績效</h1>
+              <p class="subtitle">彙整各年度與獨立個股的已實現損益。</p>
             </div>
-            <button class="button primary" id="open-transaction-dialog" type="button">＋ 新增賣出紀錄</button>
+            <button class="button primary" id="open-annual-summary-dialog" type="button">＋ 新增總記錄</button>
           </header>
 
           <section class="annual-summary-section" aria-labelledby="annual-summary-title">
             <div class="section-heading annual-summary-heading">
               <div><p class="eyebrow">YEARLY PERFORMANCE</p><h2 id="annual-summary-title">年度總績效</h2><p id="annual-summary-count">0 筆獨立項目</p></div>
               <div class="annual-summary-total"><small>歷年合計損益</small><strong id="annual-summary-total">NT$0</strong></div>
-              <button class="button secondary" id="open-annual-summary-dialog" type="button">＋ 新增總記錄</button>
+              <span class="annual-summary-heading-spacer" aria-hidden="true"></span>
             </div>
             <div class="table-wrap">
               <table class="annual-summary-table">
@@ -176,6 +179,17 @@
               <div class="empty-state compact-empty" id="annual-summary-empty"><strong>尚無年度總記錄</strong><span>每個年度或個股都可以作為獨立項目新增。</span></div>
             </div>
           </section>
+        </div>
+
+        <div class="route-page transactions-page" data-route-page="transactions" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">REALIZED RETURNS</p>
+              <h1>交易紀錄</h1>
+              <p class="subtitle">整理已賣出股票的損益、報酬率與賣出價格。</p>
+            </div>
+            <button class="button primary" id="open-transaction-dialog" type="button">＋ 新增賣出紀錄</button>
+          </header>
 
           <div class="transaction-market-tabs market-tabs" role="tablist" aria-label="交易市場切換">
             <button class="market-tab active" data-transaction-market="TW" role="tab">台股</button>
