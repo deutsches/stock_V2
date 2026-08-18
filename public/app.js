@@ -942,7 +942,7 @@ async function checkAssetSnapshot(replaceExisting = false) {
       await replaceSnapshot(state.user.uid, slot.id, snapshot);
     } else {
       const created = await createSnapshotIfMissing(state.user.uid, slot.id, snapshot);
-      if (created) showToast("已建立 14:30 每日總資產快照");
+      if (created) showToast(`已建立 ${slot.slot === "0630" ? "06:30" : "14:30"} 總資產快照`);
     }
   } catch (error) {
     showToast(`快照建立失敗：${friendlyFirebaseError(error)}`);
