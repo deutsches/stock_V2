@@ -82,6 +82,7 @@ h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-si
 .positive { color: var(--green); }
 .negative { color: var(--red); }
 .card-caption { margin: 10px 0 0; color: var(--muted); font-size: 11px; }
+.daily-market-change { display: flex; flex-wrap: wrap; gap: 5px 13px; font-weight: 650; }
 .allocation-bar { display: flex; gap: 3px; height: 5px; margin-top: 18px; overflow: hidden; border-radius: 20px; background: #e8eae5; }
 .allocation-bar span:nth-child(1) { background: var(--green); }
 .allocation-bar span:nth-child(2) { background: var(--blue); }
