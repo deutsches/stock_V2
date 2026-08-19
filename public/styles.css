@@ -31,6 +31,7 @@ button { cursor: pointer; }
 .nav-item.active { color: var(--green-dark); background: rgba(255,255,255,.8); box-shadow: 0 5px 18px rgba(38, 51, 44, .05); }
 .nav-item.disabled { cursor: default; opacity: .65; }
 .nav-item small { font-size: 9px; font-weight: 650; letter-spacing: .04em; }
+.nav-button { width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; }
 .nav-icon { font-size: 18px; text-align: center; }
 .sidebar-account { margin-top: auto; border-top: 1px solid #dcddd7; }
 .sidebar-note { display: flex; align-items: flex-start; gap: 10px; padding: 15px 12px 8px; }
@@ -227,6 +228,11 @@ dialog form { padding: 25px; }
 .dialog-header h2 { margin-bottom: 0; font-family: Georgia, serif; font-weight: 500; }
 .icon-button { width: 32px; height: 32px; border: 0; border-radius: 50%; color: var(--muted); background: #f2f3ef; font-size: 20px; }
 .dialog-copy { margin: 15px 0 22px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.setting-check { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; }
+.setting-check input { width: auto; margin-top: 3px; }
+.setting-check span, .setting-check strong, .setting-check small { display: block; }
+.setting-check small { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.settings-status.success { color: var(--green); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 13px; }
 .update-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .full-field { grid-column: 1 / -1; }
@@ -309,6 +315,8 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .app-shell { display: block; }
   .sidebar { position: static; width: 100%; height: auto; padding: 15px 18px; flex-direction: row; align-items: center; justify-content: space-between; }
   .main-nav { margin: 0; display: flex; }.nav-item { display: none; }.nav-item.active { display: flex; min-height: 38px; }
+  .nav-button { display: flex; min-height: 38px; padding-inline: 10px; }
+  .nav-button span:last-child { display: none; }
   .sidebar-note { display: none; }
   .main-content { padding: 30px 17px 50px; }
   .page-header { align-items: flex-start; flex-direction: column; }
