@@ -27,8 +27,11 @@ import { createHistoryDemoSnapshots } from "./history-demo-data.js";
 import { filterTransactions, normalizeTransactions, summarizeTransactions, transactionMetrics } from "./transaction-records.js";
 import { annualSummaryTotal, canLinkAnnualSummary, normalizeAnnualSummaries, resolveAnnualSummaries, summarizeAnnualRecords } from "./annual-summary.js";
 import { routeFromHash, titleForRoute } from "./router.js";
+import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes } from "./price-service.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
+const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
+const AUTOMATIC_PRICES_STORAGE = `${STORAGE_KEY}-automatic-prices`;
 const USD_TO_TWD = 30.33;
 
 const state = {
@@ -52,6 +55,7 @@ const state = {
   firebaseLoaded: false,
   cashLoaded: false,
   serverTimeOffset: 0,
+  priceUpdateInFlight: false,
   snapshotCheckInFlight: false,
   snapshotReplacePending: false
 };
@@ -93,6 +97,12 @@ const elements = {
   cashUsd: document.querySelector("#cash-usd"),
   cashTotalPreview: document.querySelector("#cash-total-preview"),
   cashFormError: document.querySelector("#cash-form-error"),
+  apiSettingsDialog: document.querySelector("#api-settings-dialog"),
+  apiSettingsForm: document.querySelector("#api-settings-form"),
+  finnhubApiKey: document.querySelector("#finnhub-api-key"),
+  automaticPriceUpdates: document.querySelector("#automatic-price-updates"),
+  apiSettingsStatus: document.querySelector("#api-settings-status"),
+  updatePricesNow: document.querySelector("#update-prices-now"),
   historyRecordDialog: document.querySelector("#history-record-dialog"),
   historyRecordForm: document.querySelector("#history-record-form"),
   historyRecordDate: document.querySelector("#history-record-date"),
@@ -931,6 +941,108 @@ function friendlyFirebaseError(error) {
   return error?.message || "未知錯誤";
 }
 
+function friendlyPriceError(error) {
+  const message = error?.message || "行情服務發生未知錯誤";
+  if (message.includes("401") || message.includes("403")) return "Finnhub API Key 無效或沒有權限";
+  if (message.includes("429")) return "Finnhub 已達目前速率限制，請稍後再試";
+  if (message.includes("Failed to fetch") || message.includes("NetworkError")) return "無法連接行情服務，請檢查網路或瀏覽器限制";
+  return message;
+}
+
+function automaticPricesEnabled() {
+  return localStorage.getItem(AUTOMATIC_PRICES_STORAGE) !== "false";
+}
+
+function priceUpdateMarker(market, date) {
+  return `${STORAGE_KEY}-price-update-${state.user?.uid || "guest"}-${market}-${date}`;
+}
+
+function saveApiSettings() {
+  const apiKey = elements.finnhubApiKey.value.trim();
+  if (apiKey) localStorage.setItem(FINNHUB_KEY_STORAGE, apiKey);
+  else localStorage.removeItem(FINNHUB_KEY_STORAGE);
+  localStorage.setItem(AUTOMATIC_PRICES_STORAGE, String(elements.automaticPriceUpdates.checked));
+}
+
+function openApiSettings() {
+  elements.finnhubApiKey.value = localStorage.getItem(FINNHUB_KEY_STORAGE) || "";
+  elements.automaticPriceUpdates.checked = automaticPricesEnabled();
+  elements.apiSettingsStatus.textContent = "";
+  elements.apiSettingsStatus.classList.remove("success");
+  elements.apiSettingsDialog.showModal();
+}
+
+async function checkAutomaticPrices({ force = false, report = false } = {}) {
+  if (!state.user || !state.firebaseLoaded || state.priceUpdateInFlight) return { updatedCount: 0, messages: [] };
+  if (!force && !automaticPricesEnabled()) return { updatedCount: 0, messages: [] };
+
+  const schedule = duePriceMarkets(new Date(), state.serverTimeOffset);
+  const heldMarkets = new Set(state.holdings.map(holding => holding.market));
+  const markets = (force ? ["US", "TW"] : schedule.markets)
+    .filter(market => heldMarkets.has(market))
+    .filter(market => force || localStorage.getItem(priceUpdateMarker(market, schedule.date)) !== "done");
+  if (markets.length === 0) return { updatedCount: 0, messages: [] };
+
+  state.priceUpdateInFlight = true;
+  elements.updatePricesNow.disabled = true;
+  const messages = [];
+  const completedMarkets = [];
+  let nextHoldings = state.holdings;
+  let updatedCount = 0;
+
+  try {
+    for (const market of markets) {
+      try {
+        let prices;
+        if (market === "US") {
+          const apiKey = localStorage.getItem(FINNHUB_KEY_STORAGE)?.trim();
+          if (!apiKey) {
+            if (report) messages.push("美股：尚未設定 Finnhub API Key");
+            continue;
+          }
+          prices = await fetchFinnhubQuotes(nextHoldings.filter(item => item.market === "US").map(item => item.symbol), apiKey);
+        } else {
+          prices = await fetchTaiwanQuotes();
+        }
+        const applied = applyQuotes(nextHoldings, market, prices);
+        nextHoldings = applied.holdings;
+        updatedCount += applied.updatedCount;
+        if (applied.updatedCount > 0) {
+          completedMarkets.push(market);
+          messages.push(`${market === "TW" ? "台股" : "美股"}：更新 ${applied.updatedCount} 檔`);
+        } else if (report) {
+          messages.push(`${market === "TW" ? "台股" : "美股"}：找不到相符行情`);
+        }
+      } catch (error) {
+        messages.push(`${market === "TW" ? "台股" : "美股"}：${friendlyPriceError(error)}`);
+      }
+    }
+
+    if (updatedCount > 0) {
+      state.holdings = sortHoldings(nextHoldings);
+      await saveHoldings();
+      completedMarkets.forEach(market => localStorage.setItem(priceUpdateMarker(market, schedule.date), "done"));
+      render();
+      await checkAssetSnapshot(true);
+    }
+    if (report) showToast(messages.join("；") || "目前沒有可更新的持股");
+    else if (messages.some(message => !message.includes("更新"))) showToast(messages.join("；"));
+    return { updatedCount, messages };
+  } catch (error) {
+    messages.push(`儲存行情失敗：${friendlyFirebaseError(error)}`);
+    showToast(messages.join("；"));
+    return { updatedCount: 0, messages };
+  } finally {
+    state.priceUpdateInFlight = false;
+    elements.updatePricesNow.disabled = false;
+  }
+}
+
+async function runScheduledChecks() {
+  await checkAutomaticPrices();
+  await checkAssetSnapshot();
+}
+
 async function checkAssetSnapshot(replaceExisting = false) {
   if (!state.user || !state.firebaseLoaded || !state.cashLoaded) return;
   if (state.snapshotCheckInFlight) {
@@ -974,6 +1086,7 @@ document.querySelectorAll("[data-close-dialog]").forEach(button => {
 });
 document.querySelector("#open-holding-dialog").addEventListener("click", openHoldingDialog);
 document.querySelector("#open-cash-dialog").addEventListener("click", openCashDialog);
+document.querySelector("#open-api-settings").addEventListener("click", openApiSettings);
 document.querySelector("#open-history-record-dialog").addEventListener("click", openHistoryRecordDialog);
 document.querySelector("#open-transaction-dialog").addEventListener("click", openTransactionDialog);
 document.querySelector("#open-annual-summary-dialog").addEventListener("click", () => openAnnualSummaryDialog());
@@ -981,6 +1094,21 @@ document.querySelector("#delete-holding").addEventListener("click", deleteHoldin
 elements.cashTwd.addEventListener("input", renderCashPreview);
 elements.cashUsd.addEventListener("input", renderCashPreview);
 elements.cashForm.addEventListener("submit", saveCash);
+elements.apiSettingsForm.addEventListener("submit", event => {
+  event.preventDefault();
+  saveApiSettings();
+  elements.apiSettingsDialog.close();
+  showToast("行情設定已儲存在這台瀏覽器");
+  runScheduledChecks();
+});
+elements.updatePricesNow.addEventListener("click", async () => {
+  saveApiSettings();
+  elements.apiSettingsStatus.textContent = "正在更新行情，持股較多時會稍候片刻…";
+  elements.apiSettingsStatus.classList.remove("success");
+  const result = await checkAutomaticPrices({ force: true, report: true });
+  elements.apiSettingsStatus.textContent = result.messages.join("；") || "目前沒有可更新的持股";
+  elements.apiSettingsStatus.classList.toggle("success", result.updatedCount > 0);
+});
 elements.historyRecordForm.addEventListener("submit", saveHistoryRecord);
 elements.transactionMarket.addEventListener("change", syncTransactionForm);
 elements.transactionForm.addEventListener("submit", addTransaction);
@@ -1169,7 +1297,7 @@ observeAuthentication(user => {
     }
     state.holdings = sortHoldings(holdings);
     render();
-    checkAssetSnapshot();
+    runScheduledChecks();
   }, error => {
     state.holdings = [];
     render();
@@ -1177,9 +1305,9 @@ observeAuthentication(user => {
   });
 });
 
-setInterval(checkAssetSnapshot, 5 * 60 * 1000);
-window.addEventListener("focus", () => checkAssetSnapshot());
-window.addEventListener("online", () => checkAssetSnapshot());
+setInterval(runScheduledChecks, 5 * 60 * 1000);
+window.addEventListener("focus", runScheduledChecks);
+window.addEventListener("online", runScheduledChecks);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") checkAssetSnapshot();
+  if (document.visibilityState === "visible") runScheduledChecks();
 });
