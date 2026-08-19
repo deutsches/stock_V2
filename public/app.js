@@ -924,11 +924,11 @@ async function deleteHolding() {
   showToast(`${holding.name} 已刪除`);
 }
 
-function showToast(message) {
+function showToast(message, duration = 2400) {
   elements.toast.textContent = message;
   elements.toast.classList.add("visible");
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => elements.toast.classList.remove("visible"), 2400);
+  showToast.timer = setTimeout(() => elements.toast.classList.remove("visible"), duration);
 }
 
 function friendlyFirebaseError(error) {
@@ -1025,12 +1025,12 @@ async function checkAutomaticPrices({ force = false, report = false } = {}) {
       render();
       await checkAssetSnapshot(true);
     }
-    if (report) showToast(messages.join("；") || "目前沒有可更新的持股");
-    else if (messages.some(message => !message.includes("更新"))) showToast(messages.join("；"));
+    if (report) showToast(messages.join("；") || "目前沒有可更新的持股", 7000);
+    else if (messages.some(message => !message.includes("更新"))) showToast(messages.join("；"), 7000);
     return { updatedCount, messages };
   } catch (error) {
     messages.push(`儲存行情失敗：${friendlyFirebaseError(error)}`);
-    showToast(messages.join("；"));
+    showToast(messages.join("；"), 7000);
     return { updatedCount: 0, messages };
   } finally {
     state.priceUpdateInFlight = false;

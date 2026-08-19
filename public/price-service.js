@@ -67,8 +67,8 @@ export async function fetchFinnhubQuotes(symbols, apiKey, { fetchFn = fetch, del
   let firstError = null;
   for (const [index, symbol] of uniqueSymbols.entries()) {
     try {
-      const url = `${FINNHUB_QUOTE_URL}?symbol=${encodeURIComponent(symbol)}`;
-      const data = await jsonRequest(url, { headers: { "X-Finnhub-Token": apiKey } }, fetchFn);
+      const url = `${FINNHUB_QUOTE_URL}?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(apiKey)}`;
+      const data = await jsonRequest(url, {}, fetchFn);
       const parsed = parseFinnhubQuote(data);
       if (parsed) prices.set(symbol, parsed);
     } catch (error) {

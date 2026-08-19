@@ -47,7 +47,7 @@ test("台股其中一個官方來源失敗時仍保留另一個來源", async ()
   assert.deepEqual(prices.get("6488"), { price: 320, previousClose: 315 });
 });
 
-test("Finnhub 使用請求標頭且單一代號失敗不影響其他代號", async () => {
+test("Finnhub 使用瀏覽器相容的 token 參數且單一代號失敗不影響其他代號", async () => {
   const requests = [];
   const fetchFn = async (url, options) => {
     requests.push({ url, options });
@@ -56,6 +56,7 @@ test("Finnhub 使用請求標頭且單一代號失敗不影響其他代號", asy
   };
   const prices = await fetchFinnhubQuotes(["BAD", "AAPL", "AAPL"], "browser-only-key", { fetchFn, delayMs: 0 });
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].options.headers["X-Finnhub-Token"], "browser-only-key");
+  assert.match(requests[0].url, /token=browser-only-key/);
+  assert.deepEqual(requests[0].options, {});
   assert.deepEqual(prices.get("AAPL"), { price: 230.5, previousClose: 228.2 });
 });
