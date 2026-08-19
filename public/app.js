@@ -28,6 +28,7 @@ import { filterTransactions, normalizeTransactions, summarizeTransactions, trans
 import { annualSummaryTotal, canLinkAnnualSummary, normalizeAnnualSummaries, resolveAnnualSummaries, summarizeAnnualRecords } from "./annual-summary.js";
 import { routeFromHash, titleForRoute } from "./router.js";
 import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes } from "./price-service.js";
+import { calculateDashboardMetrics } from "./dashboard-metrics.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
@@ -210,19 +211,7 @@ function number(value, maximumFractionDigits = 2) {
 }
 
 function totals() {
-  const total = state.holdings.reduce((result, item) => {
-    const marketValue = inTwd(item.shares * item.price, item.market);
-    const cost = inTwd(item.shares * item.averageCost, item.market);
-    const previous = inTwd(item.shares * item.previousClose, item.market);
-    result.value += marketValue;
-    result.cost += cost;
-    result.previous += previous;
-    result[item.market] += marketValue;
-    return result;
-  }, { value: 0, cost: 0, previous: 0, TW: 0, US: 0 });
-  total.cash = cashTotalTwd();
-  total.assets = total.value + total.cash;
-  return total;
+  return calculateDashboardMetrics(state.holdings, state.cash, USD_TO_TWD);
 }
 
 function marketTotals(market) {
@@ -238,10 +227,7 @@ function marketTotals(market) {
 
 function renderSummary() {
   const total = totals();
-  const profit = total.value - total.cost;
-  const profitRate = total.cost ? (profit / total.cost) * 100 : 0;
-  const change = total.value - total.previous;
-  const changeRate = total.previous ? (change / total.previous) * 100 : 0;
+  const { profit, profitRate, change, changeRate } = total;
   const twPercent = total.assets ? (total.TW / total.assets) * 100 : 0;
   const usPercent = total.assets ? (total.US / total.assets) * 100 : 0;
   const cashPercent = total.assets ? (total.cash / total.assets) * 100 : 0;
@@ -253,7 +239,12 @@ function renderSummary() {
   setSignedMetric("#unrealized-profit", profit, "TW");
   document.querySelector("#unrealized-rate").textContent = `報酬率 ${percent(profitRate)}`;
   setSignedMetric("#daily-change", change, "TW");
-  document.querySelector("#daily-rate").textContent = `較前一個收盤價 ${percent(changeRate)}`;
+  const dailyTw = document.querySelector("#daily-tw-change");
+  const dailyUs = document.querySelector("#daily-us-change");
+  dailyTw.textContent = `台股 ${money(total.daily.TW, "TW", true)}`;
+  dailyUs.textContent = `美股 ${money(total.daily.US, "TW", true)}`;
+  dailyTw.className = total.daily.TW >= 0 ? "positive" : "negative";
+  dailyUs.className = total.daily.US >= 0 ? "positive" : "negative";
   document.querySelector("#total-change").className = `metric-change ${change >= 0 ? "positive" : "negative"}`;
   document.querySelector("#total-change").textContent = `今日 ${money(change, "TW", true)}（${percent(changeRate)}）`;
   document.querySelector("#tw-allocation").style.width = `${twPercent}%`;
