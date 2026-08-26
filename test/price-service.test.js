@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes, parseFinnhubQuote, parseTpexQuotes, parseTwseQuotes } from "../public/price-service.js";
+import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes, parseFinnhubQuote, parseStaticTaiwanQuotes, parseTpexQuotes, parseTwseQuotes } from "../public/price-service.js";
 
 test("解析上市與上櫃官方收盤行情", () => {
   assert.deepEqual(parseTwseQuotes([{ Code: "2330", ClosingPrice: "1,200", Change: "10" }]).get("2330"), {
@@ -11,6 +11,50 @@ test("解析上市與上櫃官方收盤行情", () => {
     price: 320,
     previousClose: 325
   });
+});
+
+test("解析 GitHub Pages 同網域台股行情檔", async () => {
+  const data = {
+    generatedAt: "2026-08-26T07:00:00.000Z",
+    marketDate: "2026-08-26",
+    quotes: {
+      "2330": { price: 1200, previousClose: 1190 },
+      "6488": { price: "320", previousClose: "315" }
+    }
+  };
+  assert.deepEqual(parseStaticTaiwanQuotes(data).get("2330"), { price: 1200, previousClose: 1190 });
+
+  const requests = [];
+  const prices = await fetchTaiwanQuotes(async (url, options) => {
+    requests.push({ url: String(url), options });
+    return { ok: true, json: async () => data };
+  }, { preferStatic: true, staticUrl: "https://example.com/data/tw-quotes.json", expectedDate: "2026-08-26" });
+  assert.equal(requests.length, 1);
+  assert.match(requests[0].url, /tw-quotes\.json\?date=2026-08-26$/);
+  assert.deepEqual(requests[0].options, { cache: "no-store" });
+  assert.deepEqual(prices.get("6488"), { price: 320, previousClose: 315 });
+});
+
+test("同網域行情檔日期過期時不會套用舊價格", async () => {
+  const requests = [];
+  const fetchFn = async url => {
+    const requestUrl = String(url);
+    requests.push(requestUrl);
+    if (requestUrl.includes("tw-quotes.json")) {
+      return { ok: true, json: async () => ({ marketDate: "2026-08-25", quotes: { "2330": { price: 999, previousClose: 998 } } }) };
+    }
+    if (requestUrl.includes("twse")) {
+      return { ok: true, json: async () => [{ Code: "2330", ClosingPrice: "1,200", Change: "10" }] };
+    }
+    return { ok: true, json: async () => [] };
+  };
+  const prices = await fetchTaiwanQuotes(fetchFn, {
+    preferStatic: true,
+    staticUrl: "https://example.com/data/tw-quotes.json",
+    expectedDate: "2026-08-26"
+  });
+  assert.equal(requests.length, 3);
+  assert.deepEqual(prices.get("2330"), { price: 1200, previousClose: 1190 });
 });
 
 test("解析 Finnhub 目前價格與前收", () => {
@@ -29,10 +73,11 @@ test("只更新指定市場且缺少行情時保留原資料", () => {
   assert.deepEqual(result.holdings.map(item => item.price), [1250, 1200, 200]);
 });
 
-test("台北時間 06:30 更新美股，14:30 後再更新台股", () => {
+test("台北時間 06:30 更新美股，15:00 後再更新台股", () => {
   assert.deepEqual(duePriceMarkets(new Date("2026-08-18T22:29:00Z")), { date: "2026-08-19", markets: [] });
   assert.deepEqual(duePriceMarkets(new Date("2026-08-18T22:30:00Z")), { date: "2026-08-19", markets: ["US"] });
-  assert.deepEqual(duePriceMarkets(new Date("2026-08-19T06:30:00Z")), { date: "2026-08-19", markets: ["US", "TW"] });
+  assert.deepEqual(duePriceMarkets(new Date("2026-08-19T06:59:00Z")), { date: "2026-08-19", markets: ["US"] });
+  assert.deepEqual(duePriceMarkets(new Date("2026-08-19T07:00:00Z")), { date: "2026-08-19", markets: ["US", "TW"] });
 });
 
 test("台股其中一個官方來源失敗時仍保留另一個來源", async () => {

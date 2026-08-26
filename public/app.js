@@ -993,7 +993,7 @@ async function checkAutomaticPrices({ force = false, report = false } = {}) {
           }
           prices = await fetchFinnhubQuotes(nextHoldings.filter(item => item.market === "US").map(item => item.symbol), apiKey);
         } else {
-          prices = await fetchTaiwanQuotes();
+          prices = await fetchTaiwanQuotes(fetch, { expectedDate: schedule.date });
         }
         const applied = applyQuotes(nextHoldings, market, prices);
         nextHoldings = applied.holdings;

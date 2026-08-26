@@ -36,6 +36,15 @@ export function parseTpexQuotes(rows) {
   }));
 }
 
+export function parseStaticTaiwanQuotes(data) {
+  const records = data?.quotes && typeof data.quotes === "object" ? data.quotes : {};
+  return new Map(Object.entries(records).flatMap(([rawSymbol, value]) => {
+    const symbol = String(rawSymbol).trim().toUpperCase();
+    const parsed = quote(value?.price, null, value?.previousClose);
+    return symbol && parsed ? [[symbol, parsed]] : [];
+  }));
+}
+
 export function parseFinnhubQuote(data) {
   return quote(data?.c, null, data?.pc);
 }
@@ -46,7 +55,24 @@ async function jsonRequest(url, options, fetchFn) {
   return response.json();
 }
 
-export async function fetchTaiwanQuotes(fetchFn = fetch) {
+export async function fetchTaiwanQuotes(fetchFn = fetch, {
+  preferStatic = typeof window !== "undefined",
+  staticUrl = new URL("./data/tw-quotes.json", import.meta.url),
+  expectedDate = null
+} = {}) {
+  if (preferStatic) {
+    try {
+      const requestUrl = new URL(staticUrl);
+      if (expectedDate) requestUrl.searchParams.set("date", expectedDate);
+      const data = await jsonRequest(requestUrl, { cache: "no-store" }, fetchFn);
+      if (expectedDate && data?.marketDate !== expectedDate) throw new Error("台股行情檔尚未更新");
+      const prices = parseStaticTaiwanQuotes(data);
+      if (prices.size > 0) return prices;
+    } catch {
+      // 本機尚未產生靜態行情檔時，沿用官方來源作為備援。
+    }
+  }
+
   const results = await Promise.allSettled([
     jsonRequest(TWSE_URL, {}, fetchFn),
     jsonRequest(TPEX_URL, {}, fetchFn)
@@ -106,6 +132,6 @@ export function duePriceMarkets(now = new Date(), serverTimeOffsetMs = 0) {
   const minutes = Number(parts.hour) * 60 + Number(parts.minute);
   const date = `${parts.year}-${parts.month}-${parts.day}`;
   if (minutes < 6 * 60 + 30) return { date, markets: [] };
-  if (minutes < 14 * 60 + 30) return { date, markets: ["US"] };
+  if (minutes < 15 * 60) return { date, markets: ["US"] };
   return { date, markets: ["US", "TW"] };
 }

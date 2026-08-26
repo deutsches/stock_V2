@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # 台北時間週一至週五 14:45，收盤資料發布後重新產生行情檔。
+    - cron: "45 6 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -21,6 +24,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Generate Taiwan closing prices
+        run: node scripts/fetch-tw-quotes.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6

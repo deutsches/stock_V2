@@ -10,4 +10,5 @@ coverage/
 *.db-wal
 .DS_Store
 Thumbs.db
+public/data/tw-quotes.json
 
