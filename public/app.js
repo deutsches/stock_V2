@@ -33,6 +33,7 @@ import { calculateDashboardMetrics } from "./dashboard-metrics.js";
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
 const AUTOMATIC_PRICES_STORAGE = `${STORAGE_KEY}-automatic-prices`;
+const TW_PRICE_MARKER_REVISION = "twse-mi-index-v1";
 const USD_TO_TWD = 30.33;
 
 const state = {
@@ -945,7 +946,8 @@ function automaticPricesEnabled() {
 }
 
 function priceUpdateMarker(market, date) {
-  return `${STORAGE_KEY}-price-update-${state.user?.uid || "guest"}-${market}-${date}`;
+  const revision = market === "TW" ? `-${TW_PRICE_MARKER_REVISION}` : "";
+  return `${STORAGE_KEY}-price-update-${state.user?.uid || "guest"}-${market}-${date}${revision}`;
 }
 
 function saveApiSettings() {
