@@ -1,5 +1,5 @@
 const TAIPEI_TIME_ZONE = "Asia/Taipei";
-const TWSE_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
+const TWSE_DAILY_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX";
 const TPEX_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes";
 const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";
 
@@ -20,10 +20,21 @@ function quote(price, change, previousClose = null) {
   };
 }
 
-export function parseTwseQuotes(rows) {
-  return new Map((Array.isArray(rows) ? rows : []).flatMap(row => {
-    const symbol = String(row?.Code || "").trim().toUpperCase();
-    const parsed = quote(row?.ClosingPrice, row?.Change);
+export function parseTwseDailyQuotes(data) {
+  const table = (Array.isArray(data?.tables) ? data.tables : []).find(item =>
+    Array.isArray(item?.fields) && item.fields.includes("證券代號") && item.fields.includes("收盤價")
+  );
+  if (!table) return new Map();
+  const symbolIndex = table.fields.indexOf("證券代號");
+  const closeIndex = table.fields.indexOf("收盤價");
+  const signIndex = table.fields.indexOf("漲跌(+/-)");
+  const changeIndex = table.fields.indexOf("漲跌價差");
+  return new Map((Array.isArray(table.data) ? table.data : []).flatMap(row => {
+    const symbol = String(row?.[symbolIndex] || "").trim().toUpperCase();
+    const rawChange = Number(String(row?.[changeIndex] ?? "").replaceAll(",", ""));
+    const sign = String(row?.[signIndex] ?? "");
+    const signedChange = Number.isFinite(rawChange) ? (sign.includes("-") ? -Math.abs(rawChange) : Math.abs(rawChange)) : null;
+    const parsed = quote(row?.[closeIndex], signedChange);
     return symbol && parsed ? [[symbol, parsed]] : [];
   }));
 }
@@ -55,6 +66,16 @@ async function jsonRequest(url, options, fetchFn) {
   return response.json();
 }
 
+function compactDate(date) {
+  return String(date || "").replaceAll("-", "");
+}
+
+function rocDate(date) {
+  const compact = compactDate(date);
+  if (!/^\d{8}$/.test(compact)) return "";
+  return `${Number(compact.slice(0, 4)) - 1911}${compact.slice(4)}`;
+}
+
 export async function fetchTaiwanQuotes(fetchFn = fetch, {
   preferStatic = typeof window !== "undefined",
   staticUrl = new URL("./data/tw-quotes.json", import.meta.url),
@@ -73,16 +94,28 @@ export async function fetchTaiwanQuotes(fetchFn = fetch, {
     }
   }
 
+  const twseUrl = new URL(TWSE_DAILY_URL);
+  twseUrl.searchParams.set("response", "json");
+  twseUrl.searchParams.set("type", "ALLBUT0999");
+  if (expectedDate) twseUrl.searchParams.set("date", compactDate(expectedDate));
   const results = await Promise.allSettled([
-    jsonRequest(TWSE_URL, {}, fetchFn),
+    jsonRequest(twseUrl, { cache: "no-store" }, fetchFn),
     jsonRequest(TPEX_URL, {}, fetchFn)
   ]);
   const fulfilled = results.filter(result => result.status === "fulfilled");
   if (fulfilled.length === 0) throw results[0].reason;
   const [twseResult, tpexResult] = results;
+  const twseRows = twseResult.status === "fulfilled" && (!expectedDate || String(twseResult.value?.date) === compactDate(expectedDate))
+    ? parseTwseDailyQuotes(twseResult.value)
+    : new Map();
+  const tpexDate = tpexResult.status === "fulfilled" ? String(tpexResult.value?.[0]?.Date || "") : "";
+  const tpexRows = tpexResult.status === "fulfilled" && (!expectedDate || tpexDate === rocDate(expectedDate))
+    ? parseTpexQuotes(tpexResult.value)
+    : new Map();
+  if (twseRows.size === 0 && tpexRows.size === 0) throw new Error("台股官方行情尚未更新至指定日期");
   return new Map([
-    ...(twseResult.status === "fulfilled" ? parseTwseQuotes(twseResult.value) : []),
-    ...(tpexResult.status === "fulfilled" ? parseTpexQuotes(tpexResult.value) : [])
+    ...twseRows,
+    ...tpexRows
   ]);
 }
 

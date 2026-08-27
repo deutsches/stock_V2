@@ -1,12 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes, parseFinnhubQuote, parseStaticTaiwanQuotes, parseTpexQuotes, parseTwseQuotes } from "../public/price-service.js";
+import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes, parseFinnhubQuote, parseStaticTaiwanQuotes, parseTpexQuotes, parseTwseDailyQuotes } from "../public/price-service.js";
 
 test("解析上市與上櫃官方收盤行情", () => {
-  assert.deepEqual(parseTwseQuotes([{ Code: "2330", ClosingPrice: "1,200", Change: "10" }]).get("2330"), {
+  const twseData = {
+    date: "20260827",
+    tables: [{
+      fields: ["證券代號", "證券名稱", "收盤價", "漲跌(+/-)", "漲跌價差"],
+      data: [["2330", "台積電", "1,200", "<p>+</p>", "10"], ["2345", "智邦", "2,090", "<p>+</p>", "35"]]
+    }]
+  };
+  assert.deepEqual(parseTwseDailyQuotes(twseData).get("2330"), {
     price: 1200,
     previousClose: 1190
   });
+  assert.deepEqual(parseTwseDailyQuotes(twseData).get("2345"), { price: 2090, previousClose: 2055 });
   assert.deepEqual(parseTpexQuotes([{ SecuritiesCompanyCode: "6488", Close: "320", Change: "-5" }]).get("6488"), {
     price: 320,
     previousClose: 325
@@ -43,8 +51,11 @@ test("同網域行情檔日期過期時不會套用舊價格", async () => {
     if (requestUrl.includes("tw-quotes.json")) {
       return { ok: true, json: async () => ({ marketDate: "2026-08-25", quotes: { "2330": { price: 999, previousClose: 998 } } }) };
     }
-    if (requestUrl.includes("twse")) {
-      return { ok: true, json: async () => [{ Code: "2330", ClosingPrice: "1,200", Change: "10" }] };
+    if (requestUrl.includes("MI_INDEX")) {
+      return { ok: true, json: async () => ({
+        date: "20260826",
+        tables: [{ fields: ["證券代號", "收盤價", "漲跌(+/-)", "漲跌價差"], data: [["2330", "1,200", "+", "10"]] }]
+      }) };
     }
     return { ok: true, json: async () => [] };
   };
@@ -85,11 +96,26 @@ test("台股其中一個官方來源失敗時仍保留另一個來源", async ()
     if (url.includes("twse")) return { ok: false, status: 503 };
     return {
       ok: true,
-      json: async () => [{ SecuritiesCompanyCode: "6488", Close: "320", Change: "5" }]
+      json: async () => [{ Date: "1150827", SecuritiesCompanyCode: "6488", Close: "320", Change: "5" }]
     };
   };
-  const prices = await fetchTaiwanQuotes(fetchFn);
+  const prices = await fetchTaiwanQuotes(fetchFn, { preferStatic: false, expectedDate: "2026-08-27" });
   assert.deepEqual(prices.get("6488"), { price: 320, previousClose: 315 });
+});
+
+test("上市收盤行情必須符合指定日期並讀到智邦 2090", async () => {
+  const fetchFn = async url => {
+    if (String(url).includes("MI_INDEX")) return {
+      ok: true,
+      json: async () => ({
+        date: "20260827",
+        tables: [{ fields: ["證券代號", "收盤價", "漲跌(+/-)", "漲跌價差"], data: [["2345", "2,090", "+", "35"]] }]
+      })
+    };
+    return { ok: true, json: async () => [] };
+  };
+  const prices = await fetchTaiwanQuotes(fetchFn, { preferStatic: false, expectedDate: "2026-08-27" });
+  assert.deepEqual(prices.get("2345"), { price: 2090, previousClose: 2055 });
 });
 
 test("Finnhub 使用瀏覽器相容的 token 參數且單一代號失敗不影響其他代號", async () => {

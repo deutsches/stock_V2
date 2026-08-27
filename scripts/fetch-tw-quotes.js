@@ -5,23 +5,23 @@ import { fetchTaiwanQuotes } from "../public/price-service.js";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const outputPath = path.resolve(scriptDirectory, "../public/data/tw-quotes.json");
-const prices = await fetchTaiwanQuotes(fetch, { preferStatic: false });
-
-if (prices.size < 100) {
-  throw new Error(`台股行情筆數異常：只取得 ${prices.size} 筆`);
-}
-
-const quotes = Object.fromEntries([...prices.entries()].sort(([left], [right]) => left.localeCompare(right)));
 const marketDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Taipei",
   year: "numeric",
   month: "2-digit",
   day: "2-digit"
 }).format(new Date());
+const prices = await fetchTaiwanQuotes(fetch, { preferStatic: false, expectedDate: marketDate });
+
+if (prices.size < 100) {
+  throw new Error(`台股行情筆數異常：只取得 ${prices.size} 筆`);
+}
+
+const quotes = Object.fromEntries([...prices.entries()].sort(([left], [right]) => left.localeCompare(right)));
 const payload = {
   generatedAt: new Date().toISOString(),
   marketDate,
-  sources: ["TWSE", "TPEx"],
+  sources: ["TWSE MI_INDEX", "TPEx"],
   quoteCount: prices.size,
   quotes
 };

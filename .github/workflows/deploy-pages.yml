@@ -5,8 +5,9 @@ on:
     branches:
       - main
   schedule:
-    # 台北時間週一至週五 14:45，收盤資料發布後重新產生行情檔。
-    - cron: "45 6 * * 1-5"
+    # 台北時間週一至週五 14:47、15:07、15:22，避開整點高峰並提供重試。
+    - cron: "47 6 * * 1-5"
+    - cron: "7,22 7 * * 1-5"
   workflow_dispatch:
 
 permissions:
