@@ -119,6 +119,42 @@ export async function fetchTaiwanQuotes(fetchFn = fetch, {
   ]);
 }
 
+export function recentDateCandidates(anchorDate, limit = 10) {
+  const compact = compactDate(anchorDate);
+  if (!/^\d{8}$/.test(compact)) return [];
+  const year = Number(compact.slice(0, 4));
+  const month = Number(compact.slice(4, 6));
+  const day = Number(compact.slice(6, 8));
+  const anchorTime = Date.UTC(year, month - 1, day);
+  if (!Number.isFinite(anchorTime)) return [];
+  return Array.from({ length: Math.max(1, Number(limit) || 1) }, (_, index) => {
+    const date = new Date(anchorTime - index * 24 * 60 * 60 * 1000);
+    return date.toISOString().slice(0, 10);
+  });
+}
+
+export async function fetchLatestTaiwanQuotes(fetchFn = fetch, {
+  anchorDate,
+  lookbackDays = 10,
+  minQuoteCount = 100,
+  requiredSymbols = []
+} = {}) {
+  let lastError = null;
+  for (const marketDate of recentDateCandidates(anchorDate, lookbackDays)) {
+    try {
+      const prices = await fetchTaiwanQuotes(fetchFn, { preferStatic: false, expectedDate: marketDate });
+      const missingSymbols = requiredSymbols.filter(symbol => !prices.has(String(symbol).trim().toUpperCase()));
+      if (prices.size < minQuoteCount || missingSymbols.length > 0) {
+        throw new Error(`台股行情不完整：${prices.size} 筆，缺少 ${missingSymbols.join(", ") || "足夠筆數"}`);
+      }
+      return { marketDate, prices };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw new Error(`最近 ${lookbackDays} 天找不到完整台股收盤行情`, { cause: lastError });
+}
+
 export async function fetchFinnhubQuotes(symbols, apiKey, { fetchFn = fetch, delayMs = 1100 } = {}) {
   if (!apiKey) throw new Error("尚未設定 Finnhub API Key");
   const prices = new Map();

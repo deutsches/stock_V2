@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes, parseFinnhubQuote, parseStaticTaiwanQuotes, parseTpexQuotes, parseTwseDailyQuotes } from "../public/price-service.js";
+import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchLatestTaiwanQuotes, fetchTaiwanQuotes, parseFinnhubQuote, parseStaticTaiwanQuotes, parseTpexQuotes, parseTwseDailyQuotes, recentDateCandidates } from "../public/price-service.js";
 
 test("解析上市與上櫃官方收盤行情", () => {
   const twseData = {
@@ -116,6 +116,42 @@ test("上市收盤行情必須符合指定日期並讀到智邦 2090", async () 
   };
   const prices = await fetchTaiwanQuotes(fetchFn, { preferStatic: false, expectedDate: "2026-08-27" });
   assert.deepEqual(prices.get("2345"), { price: 2090, previousClose: 2055 });
+});
+
+test("排程延遲到週末時會往前找到最近的完整交易日", async () => {
+  assert.deepEqual(recentDateCandidates("2026-08-29", 3), ["2026-08-29", "2026-08-28", "2026-08-27"]);
+  const requests = [];
+  const fetchFn = async url => {
+    const requestUrl = String(url);
+    requests.push(requestUrl);
+    if (requestUrl.includes("MI_INDEX")) {
+      const requestedDate = new URL(requestUrl).searchParams.get("date");
+      return {
+        ok: true,
+        json: async () => ({
+          date: "20260828",
+          tables: [{
+            fields: ["證券代號", "收盤價", "漲跌(+/-)", "漲跌價差"],
+            data: requestedDate === "20260828" ? [["2330", "2,420", "+", "10"]] : []
+          }]
+        })
+      };
+    }
+    return {
+      ok: true,
+      json: async () => [{ Date: "1150828", SecuritiesCompanyCode: "6488", Close: "320", Change: "5" }]
+    };
+  };
+  const result = await fetchLatestTaiwanQuotes(fetchFn, {
+    anchorDate: "2026-08-29",
+    lookbackDays: 3,
+    minQuoteCount: 2,
+    requiredSymbols: ["2330", "6488"]
+  });
+  assert.equal(result.marketDate, "2026-08-28");
+  assert.equal(result.prices.size, 2);
+  assert.deepEqual(result.prices.get("2330"), { price: 2420, previousClose: 2410 });
+  assert.equal(requests.length, 4);
 });
 
 test("Finnhub 使用瀏覽器相容的 token 參數且單一代號失敗不影響其他代號", async () => {
