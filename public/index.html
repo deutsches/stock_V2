@@ -286,6 +286,18 @@
                 <title id="history-chart-title">資產歷史曲線圖</title>
                 <desc id="history-chart-description">比較各資產快照的總資產與持股市值</desc>
               </svg>
+              <div class="history-chart-tooltip" id="history-chart-tooltip" role="tooltip" hidden>
+                <div class="history-tooltip-header">
+                  <span id="history-tooltip-date">—</span>
+                  <strong id="history-tooltip-change">—</strong>
+                </div>
+                <dl>
+                  <div><dt>總資產</dt><dd id="history-tooltip-assets">—</dd></div>
+                  <div><dt>持股市值</dt><dd id="history-tooltip-holdings">—</dd></div>
+                  <div><dt>現金合計</dt><dd id="history-tooltip-cash">—</dd></div>
+                </dl>
+                <p id="history-tooltip-note" hidden></p>
+              </div>
             </div>
             <div class="history-empty" id="history-empty">
               <strong>尚無可繪製的歷史資料</strong>

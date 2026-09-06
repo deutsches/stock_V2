@@ -111,6 +111,13 @@ const elements = {
   historyRecordError: document.querySelector("#history-record-error"),
   historyChart: document.querySelector("#history-chart"),
   historyChartWrap: document.querySelector("#history-chart-wrap"),
+  historyChartTooltip: document.querySelector("#history-chart-tooltip"),
+  historyTooltipDate: document.querySelector("#history-tooltip-date"),
+  historyTooltipChange: document.querySelector("#history-tooltip-change"),
+  historyTooltipAssets: document.querySelector("#history-tooltip-assets"),
+  historyTooltipHoldings: document.querySelector("#history-tooltip-holdings"),
+  historyTooltipCash: document.querySelector("#history-tooltip-cash"),
+  historyTooltipNote: document.querySelector("#history-tooltip-note"),
   historyEmpty: document.querySelector("#history-empty"),
   historySummary: document.querySelector("#history-summary"),
   historyDemoToggle: document.querySelector("#history-demo-toggle"),
@@ -397,6 +404,58 @@ function renderHistoryRecords(snapshots) {
   }).join("");
 }
 
+function hideHistoryTooltip() {
+  elements.historyChartTooltip.hidden = true;
+}
+
+function showHistoryTooltip(point, index, target) {
+  const previous = index > 0 ? state.renderedHistoryPoints[index - 1] : null;
+  const change = previous ? point.totalAssetsTwd - previous.totalAssetsTwd : null;
+  const hasCashDetails = Number.isFinite(point.cashTwdAmount) && Number.isFinite(point.cashUsdAmount);
+
+  elements.historyTooltipDate.textContent = snapshotLabel(point);
+  elements.historyTooltipAssets.textContent = money(point.totalAssetsTwd);
+  elements.historyTooltipHoldings.textContent = Number.isFinite(point.marketValueTwd) ? money(point.marketValueTwd) : "—";
+  elements.historyTooltipCash.textContent = Number.isFinite(point.cashTwd) ? money(point.cashTwd) : "—";
+  elements.historyTooltipChange.textContent = change === null ? "首筆紀錄" : money(change, "TW", true);
+  elements.historyTooltipChange.className = change === null ? "" : change >= 0 ? "positive" : "negative";
+  elements.historyTooltipNote.hidden = !hasCashDetails && point.slot !== "manual";
+  elements.historyTooltipNote.textContent = point.slot === "manual"
+    ? "手動補登，沒有持股與現金明細"
+    : hasCashDetails
+      ? `現金明細：${money(point.cashTwdAmount)} + ${money(point.cashUsdAmount, "US")}`
+      : "";
+
+  elements.historyChartTooltip.hidden = false;
+  const wrapRect = elements.historyChartWrap.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const tooltipWidth = elements.historyChartTooltip.offsetWidth;
+  const tooltipHeight = elements.historyChartTooltip.offsetHeight;
+  const centerX = targetRect.left - wrapRect.left + elements.historyChartWrap.scrollLeft + targetRect.width / 2;
+  const minLeft = elements.historyChartWrap.scrollLeft + 8;
+  const maxLeft = elements.historyChartWrap.scrollLeft + elements.historyChartWrap.clientWidth - tooltipWidth - 8;
+  const left = Math.min(Math.max(centerX - tooltipWidth / 2, minLeft), Math.max(minLeft, maxLeft));
+  const pointTop = targetRect.top - wrapRect.top + elements.historyChartWrap.scrollTop;
+  const pointBottom = targetRect.bottom - wrapRect.top + elements.historyChartWrap.scrollTop;
+  const above = pointTop - tooltipHeight - 12;
+  const top = above >= elements.historyChartWrap.scrollTop + 6 ? above : pointBottom + 12;
+
+  elements.historyChartTooltip.style.left = `${left}px`;
+  elements.historyChartTooltip.style.top = `${top}px`;
+}
+
+function bindHistoryChartTooltips(points) {
+  state.renderedHistoryPoints = points;
+  elements.historyChart.querySelectorAll("[data-history-point]").forEach(target => {
+    const index = Number(target.dataset.historyPoint);
+    const show = () => showHistoryTooltip(points[index], index, target);
+    target.addEventListener("mouseenter", show);
+    target.addEventListener("mouseleave", hideHistoryTooltip);
+    target.addEventListener("focus", show);
+    target.addEventListener("blur", hideHistoryTooltip);
+  });
+}
+
 function renderHistoryChart() {
   const source = state.historyDemo ? historyDemoSnapshots : state.snapshots;
   const snapshots = filterSnapshotsByRange(source, state.historyRange);
@@ -409,6 +468,7 @@ function renderHistoryChart() {
   if (!model) {
     elements.historySummary.textContent = "等待歷史快照資料";
     elements.historyChart.innerHTML = "";
+    hideHistoryTooltip();
     return;
   }
 
@@ -425,7 +485,7 @@ function renderHistoryChart() {
   const labels = model.xLabels.map(point => `
     <text class="chart-axis-label" x="${point.x}" y="${model.height - 13}" text-anchor="middle">${snapshotLabel(point)}</text>
   `).join("");
-  const points = model.points.map(point => {
+  const points = model.points.map((point, index) => {
     const cashDetails = Number.isFinite(point.cashTwdAmount) && Number.isFinite(point.cashUsdAmount)
       ? `${money(point.cashTwdAmount)} + ${money(point.cashUsdAmount, "US")}`
       : money(point.cashTwd);
@@ -433,9 +493,10 @@ function renderHistoryChart() {
       ? `｜持股 ${money(point.marketValueTwd)}｜現金 ${cashDetails}`
       : "｜手動補登，無明細";
     return `
-    <circle class="chart-point" cx="${point.x}" cy="${point.assetsY}" r="4" tabindex="0">
-      <title>${snapshotLabel(point)}｜總資產 ${money(point.totalAssetsTwd)}${details}</title>
-    </circle>
+    <g class="chart-point-group">
+      <circle class="chart-point-hit" data-history-point="${index}" cx="${point.x}" cy="${point.assetsY}" r="14" tabindex="0" aria-describedby="history-chart-tooltip" aria-label="${snapshotLabel(point)}，總資產 ${money(point.totalAssetsTwd)}${details}"></circle>
+      <circle class="chart-point" cx="${point.x}" cy="${point.assetsY}" r="4" aria-hidden="true"></circle>
+    </g>
   `;
   }).join("");
 
@@ -448,6 +509,7 @@ function renderHistoryChart() {
     <path class="chart-line chart-value-line" d="${model.assetsPath}"></path>
     ${points}
   `;
+  bindHistoryChartTooltips(model.points);
 }
 
 function taipeiYear() {
