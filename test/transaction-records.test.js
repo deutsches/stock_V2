@@ -28,6 +28,14 @@ test("可依市場與年份篩選今年和歷年紀錄", () => {
   assert.equal(filterTransactions(transactions, "TW", 2026).length, 1);
 });
 
+test("可用股票代號或名稱搜尋交易紀錄並忽略大小寫與空白", () => {
+  const transactions = normalizeTransactions(records);
+  assert.deepEqual(filterTransactions(transactions, "US", null, " nv ").map(record => record.symbol), ["NVDA"]);
+  assert.deepEqual(filterTransactions(transactions, "US", null, "apple").map(record => record.symbol), ["AAPL"]);
+  assert.deepEqual(filterTransactions(transactions, "TW", 2026, "台積").map(record => record.symbol), ["2330"]);
+  assert.equal(filterTransactions(transactions, "TW", 2025, "2330").length, 0);
+});
+
 test("歷史交易可缺少賣出價格", () => {
   const transactions = normalizeTransactions({ historical: { market: "US", year: 2024, symbol: "QQQ", profit: 8.42, profitRate: 0.85 } });
   assert.equal(transactions.length, 1);

@@ -60,6 +60,7 @@ const state = {
   editingSalaryRecordId: null,
   transactionMarket: "TW",
   transactionYearFilter: "ALL",
+  transactionSearch: "",
   historyRange: "YTD",
   historyDemo: false,
   firebaseLoaded: false,
@@ -145,6 +146,7 @@ const elements = {
   transactionProfitRate: document.querySelector("#transaction-profit-rate"),
   transactionSellPrice: document.querySelector("#transaction-sell-price"),
   transactionYearFilter: document.querySelector("#transaction-year-filter"),
+  transactionSearch: document.querySelector("#transaction-search"),
   transactionFormError: document.querySelector("#transaction-form-error"),
   transactionYearBody: document.querySelector("#transaction-year-body"),
   transactionAllBody: document.querySelector("#transaction-all-body"),
@@ -595,7 +597,7 @@ function setTransactionMetric(id, value, market, signed = false) {
 function renderTransactions() {
   const market = state.transactionMarket;
   const marketRecords = filterTransactions(state.transactions, market);
-  const yearRecords = filterTransactions(state.transactions, market, taipeiYear());
+  const yearRecords = filterTransactions(state.transactions, market, taipeiYear(), state.transactionSearch);
   const availableYears = [...new Set(marketRecords.map(record => record.year))].sort((a, b) => b - a);
   if (state.transactionYearFilter !== "ALL" && !availableYears.includes(Number(state.transactionYearFilter))) {
     state.transactionYearFilter = "ALL";
@@ -603,8 +605,8 @@ function renderTransactions() {
   elements.transactionYearFilter.innerHTML = `<option value="ALL">全選</option>${availableYears.map(year => `<option value="${year}">${year}</option>`).join("")}`;
   elements.transactionYearFilter.value = state.transactionYearFilter;
   const allRecords = state.transactionYearFilter === "ALL"
-    ? marketRecords
-    : filterTransactions(state.transactions, market, Number(state.transactionYearFilter));
+    ? filterTransactions(state.transactions, market, null, state.transactionSearch)
+    : filterTransactions(state.transactions, market, Number(state.transactionYearFilter), state.transactionSearch);
   const yearSummary = summarizeTransactions(yearRecords, USD_TO_TWD);
   const allSummary = summarizeTransactions(allRecords, USD_TO_TWD);
 
@@ -627,12 +629,17 @@ function renderTransactions() {
 
   elements.transactionYearBody.innerHTML = transactionRows(yearRecords);
   elements.transactionAllBody.innerHTML = transactionRows(allRecords, true);
+  const hasSearch = Boolean(state.transactionSearch.trim());
+  elements.transactionYearEmpty.querySelector("strong").textContent = hasSearch ? "找不到符合的今年紀錄" : "今年尚無賣出紀錄";
+  elements.transactionYearEmpty.querySelector("span").textContent = hasSearch ? "請嘗試其他股票代號或名稱。" : "使用「新增賣出紀錄」建立第一筆資料。";
+  elements.transactionAllEmpty.querySelector("strong").textContent = hasSearch ? "找不到符合的歷年紀錄" : "尚無歷年賣出紀錄";
+  elements.transactionAllEmpty.querySelector("span").textContent = hasSearch ? "請嘗試其他股票代號或名稱。" : "新增的紀錄會依年份自動排序。";
   elements.transactionYearEmpty.hidden = yearRecords.length > 0;
   elements.transactionAllEmpty.hidden = allRecords.length > 0;
   elements.transactionYearBody.closest("table").hidden = yearRecords.length === 0;
   elements.transactionAllBody.closest("table").hidden = allRecords.length === 0;
-  document.querySelector("#transaction-year-count").textContent = `${yearRecords.length} 筆紀錄`;
-  document.querySelector("#transaction-all-count").textContent = `${allRecords.length} 筆紀錄`;
+  document.querySelector("#transaction-year-count").textContent = `${yearRecords.length} 筆${hasSearch ? "符合" : "紀錄"}`;
+  document.querySelector("#transaction-all-count").textContent = `${allRecords.length} 筆${hasSearch ? "符合" : "紀錄"}`;
 }
 
 function syncTransactionForm() {
@@ -1426,6 +1433,10 @@ elements.salaryForm.querySelectorAll('input[type="number"]').forEach(input => in
 elements.salaryYearFilter.addEventListener("change", renderSalaryRecords);
 elements.transactionYearFilter.addEventListener("change", () => {
   state.transactionYearFilter = elements.transactionYearFilter.value;
+  renderTransactions();
+});
+elements.transactionSearch.addEventListener("input", () => {
+  state.transactionSearch = elements.transactionSearch.value;
   renderTransactions();
 });
 elements.holdingMarket.addEventListener("change", syncHoldingCurrency);

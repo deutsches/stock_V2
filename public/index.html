@@ -232,9 +232,15 @@
             <button class="button primary" id="open-transaction-dialog" type="button">＋ 新增賣出紀錄</button>
           </header>
 
-          <div class="transaction-market-tabs market-tabs" role="tablist" aria-label="交易市場切換">
-            <button class="market-tab active" data-transaction-market="TW" role="tab">台股</button>
-            <button class="market-tab" data-transaction-market="US" role="tab">美股</button>
+          <div class="transaction-controls">
+            <div class="transaction-market-tabs market-tabs" role="tablist" aria-label="交易市場切換">
+              <button class="market-tab active" data-transaction-market="TW" role="tab">台股</button>
+              <button class="market-tab" data-transaction-market="US" role="tab">美股</button>
+            </div>
+            <label class="transaction-search-label">
+              <span class="sr-only">搜尋交易紀錄</span>
+              <input id="transaction-search" type="search" autocomplete="off" placeholder="搜尋股票代號或名稱" />
+            </label>
           </div>
 
           <div class="transaction-period-grid">

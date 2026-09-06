@@ -57,9 +57,11 @@ export function summarizeTransactions(records, exchangeRate = 30.33) {
   return Object.fromEntries(Object.entries(summary).map(([key, value]) => [key, Number(value.toFixed(4))]));
 }
 
-export function filterTransactions(records, market, year = null) {
+export function filterTransactions(records, market, year = null, query = "") {
+  const normalizedQuery = String(query).trim().toLocaleLowerCase();
   return records.filter(record =>
     record.market === market &&
-    (year === null || record.year === Number(year))
+    (year === null || record.year === Number(year)) &&
+    (!normalizedQuery || `${record.symbol} ${record.name}`.toLocaleLowerCase().includes(normalizedQuery))
   );
 }

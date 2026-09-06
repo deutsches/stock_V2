@@ -144,7 +144,12 @@ h1 { margin-bottom: 6px; font-family: Georgia, "Times New Roman", serif; font-si
 .history-table th, .history-table td { text-align: right; }
 .history-table th:first-child, .history-table td:first-child { text-align: left; }
 
-.transaction-market-tabs { width: fit-content; margin-bottom: 18px; }
+.transaction-controls { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.transaction-market-tabs { width: fit-content; }
+.transaction-search-label { position: relative; width: min(100%, 300px); }
+.transaction-search-label::before { position: absolute; top: 50%; left: 14px; color: var(--muted); font-size: 15px; content: "⌕"; transform: translateY(-52%); pointer-events: none; }
+.transaction-search-label input { width: 100%; padding: 11px 38px; border-radius: 10px; background: var(--surface); font-size: 13px; }
+.transaction-search-label input::-webkit-search-cancel-button { cursor: pointer; }
 .transaction-period-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 .transaction-panel { min-width: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
 .transaction-panel .section-heading { padding: 23px 25px 18px; }
@@ -416,6 +421,8 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .salary-record-detail { padding: 0 16px 18px; }
   .salary-detail-grid { grid-template-columns: 1fr; }
   .salary-form-preview { grid-template-columns: 1fr; }
+  .transaction-controls { align-items: stretch; flex-direction: column; }
+  .transaction-search-label { width: 100%; }
   .transaction-heading { grid-template-columns: 1fr auto; gap: 18px 12px; }
   .transaction-heading-summary { grid-row: 2; grid-column: 1 / -1; justify-self: start; min-width: 0; text-align: left; }
   .transaction-heading-values { justify-content: flex-start; }
