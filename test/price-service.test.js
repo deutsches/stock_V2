@@ -119,7 +119,7 @@ test("上市收盤行情必須符合指定日期並讀到智邦 2090", async () 
 });
 
 test("排程延遲到週末時會往前找到最近的完整交易日", async () => {
-  assert.deepEqual(recentDateCandidates("2026-08-29", 3), ["2026-08-29", "2026-08-28", "2026-08-27"]);
+  assert.deepEqual(recentDateCandidates("2026-08-29", 3), ["2026-08-28", "2026-08-27", "2026-08-26"]);
   const requests = [];
   const fetchFn = async url => {
     const requestUrl = String(url);
@@ -151,7 +151,7 @@ test("排程延遲到週末時會往前找到最近的完整交易日", async ()
   assert.equal(result.marketDate, "2026-08-28");
   assert.equal(result.prices.size, 2);
   assert.deepEqual(result.prices.get("2330"), { price: 2420, previousClose: 2410 });
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 2);
 });
 
 test("Finnhub 使用瀏覽器相容的 token 參數且單一代號失敗不影響其他代號", async () => {

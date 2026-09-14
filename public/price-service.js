@@ -127,10 +127,13 @@ export function recentDateCandidates(anchorDate, limit = 10) {
   const day = Number(compact.slice(6, 8));
   const anchorTime = Date.UTC(year, month - 1, day);
   if (!Number.isFinite(anchorTime)) return [];
-  return Array.from({ length: Math.max(1, Number(limit) || 1) }, (_, index) => {
+  const candidates = [];
+  const candidateLimit = Math.max(1, Number(limit) || 1);
+  for (let index = 0; candidates.length < candidateLimit && index < candidateLimit + 14; index += 1) {
     const date = new Date(anchorTime - index * 24 * 60 * 60 * 1000);
-    return date.toISOString().slice(0, 10);
-  });
+    if (date.getUTCDay() !== 0 && date.getUTCDay() !== 6) candidates.push(date.toISOString().slice(0, 10));
+  }
+  return candidates;
 }
 
 export async function fetchLatestTaiwanQuotes(fetchFn = fetch, {
@@ -152,7 +155,7 @@ export async function fetchLatestTaiwanQuotes(fetchFn = fetch, {
       lastError = error;
     }
   }
-  throw new Error(`最近 ${lookbackDays} 天找不到完整台股收盤行情`, { cause: lastError });
+  throw new Error(`最近 ${lookbackDays} 個工作日找不到完整台股收盤行情`, { cause: lastError });
 }
 
 export async function fetchFinnhubQuotes(symbols, apiKey, { fetchFn = fetch, delayMs = 1100 } = {}) {
