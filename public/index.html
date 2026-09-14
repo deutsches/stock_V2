@@ -204,20 +204,15 @@
 
           <section class="salary-summary-grid" aria-label="薪資摘要">
             <article><small>應發合計</small><strong id="salary-gross-total">NT$0</strong></article>
-            <article><small>應扣合計</small><strong id="salary-deduction-total">NT$0</strong></article>
             <article class="salary-net-card"><small>實領合計</small><strong id="salary-net-total">NT$0</strong></article>
-            <article><small>平均實領</small><strong id="salary-net-average">NT$0</strong></article>
           </section>
 
           <section class="salary-records-section" aria-labelledby="salary-list-title">
             <div class="section-heading">
               <div><p class="eyebrow">MONTHLY DETAILS</p><h2 id="salary-list-title">每月薪資</h2><p>點選月份列可查看完整明細</p></div>
             </div>
-            <div class="table-wrap">
-              <table class="salary-table">
-                <thead><tr><th>月份</th><th>應發</th><th>應扣</th><th>實領</th><th>請假／時數</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
-                <tbody id="salary-records-body"></tbody>
-              </table>
+            <div class="salary-record-list" id="salary-records-body" aria-live="polite"></div>
+            <div class="salary-records-empty-wrap">
               <div class="empty-state compact-empty" id="salary-records-empty"><strong>尚無薪資記錄</strong><span>使用「新增薪資記錄」建立第一個月份。</span></div>
             </div>
           </section>

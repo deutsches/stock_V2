@@ -264,7 +264,7 @@ dialog form { padding: 25px; }
 .salary-toolbar span { margin-top: 4px; color: var(--muted); font-size: 11px; }
 .salary-toolbar label { color: var(--muted); font-size: 11px; font-weight: 700; }
 .salary-toolbar select { min-width: 132px; margin-left: 8px; padding: 8px 30px 8px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; }
-.salary-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.salary-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .salary-summary-grid article { padding: 21px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
 .salary-summary-grid small, .salary-summary-grid strong { display: block; }
 .salary-summary-grid small { color: var(--muted); font-size: 10px; font-weight: 700; }
@@ -272,13 +272,22 @@ dialog form { padding: 25px; }
 .salary-summary-grid .salary-net-card { border-color: #d5e5dc; background: linear-gradient(135deg, #fff, #f5faf7); }
 .salary-net-card strong { color: var(--green); }
 .salary-records-section { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
-.salary-table { min-width: 820px; }
-.salary-table th, .salary-table td { padding: 16px 18px; text-align: right; }
-.salary-table th:first-child, .salary-table td:first-child { padding-left: 28px; text-align: left; }
-.salary-table td { font-size: 14px; font-variant-numeric: tabular-nums; }
-.salary-month-button { padding: 0; border: 0; color: var(--ink); background: transparent; font-weight: 750; }
-.salary-month-button:hover { color: var(--green); }
-.salary-detail-row td { padding: 0 28px 20px !important; background: #fbfcfa; text-align: left !important; }
+.salary-record-list { border-top: 1px solid var(--line); }
+.salary-record-card + .salary-record-card { border-top: 1px solid var(--line); }
+.salary-record-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 0 22px 0 0; }
+.salary-record-toggle { display: grid; grid-template-columns: minmax(150px, 1.2fr) repeat(3, minmax(105px, .8fr)) minmax(160px, 1fr) 28px; align-items: center; gap: 18px; width: 100%; padding: 19px 18px 19px 28px; border: 0; color: var(--ink); background: transparent; text-align: right; cursor: pointer; }
+.salary-record-toggle:hover { background: #fafcfb; }
+.salary-record-toggle:focus-visible { outline: 3px solid #cce1d6; outline-offset: -3px; }
+.salary-record-toggle > span { min-width: 0; }
+.salary-record-toggle small, .salary-record-toggle strong { display: block; }
+.salary-record-toggle small { margin-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 700; }
+.salary-record-toggle strong { overflow: hidden; font-size: 14px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.salary-record-toggle .salary-record-month { text-align: left; }
+.salary-record-net strong { color: var(--green); }
+.salary-record-chevron { color: var(--muted); font-size: 22px; line-height: 1; transition: transform .18s ease; }
+.salary-record-toggle[aria-expanded="true"] .salary-record-chevron { transform: rotate(180deg); }
+.salary-record-detail { padding: 0 28px 22px; background: #fbfcfa; }
+.salary-records-empty-wrap { border-top: 1px solid var(--line); }
 .salary-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: white; }
 .salary-detail-grid h3 { margin: 0 0 10px; font-size: 13px; }
 .salary-detail-grid dl { display: grid; gap: 7px; margin: 0; }
@@ -355,7 +364,7 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .market-summary-item.us-summary-item { grid-template-columns: minmax(120px, 1.25fr) repeat(5, minmax(90px, 1fr)); }
   .market-summary-item + .market-summary-item { border-top: 1px solid var(--line); border-left: 0; }
   .transaction-period-grid { grid-template-columns: 1fr; }
-  .salary-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .salary-record-toggle { grid-template-columns: minmax(130px, 1.1fr) repeat(3, minmax(85px, .8fr)) minmax(130px, 1fr) 24px; gap: 10px; }
 }
 @media (max-width: 900px) {
   .app-shell { display: block; }
@@ -379,6 +388,12 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .annual-summary-heading { grid-template-columns: 1fr auto; }
   .annual-summary-total { grid-row: 2; grid-column: 1 / -1; justify-self: start; text-align: left; }
   .annual-summary-heading-spacer { display: none; }
+  .salary-record-row { align-items: start; padding-right: 14px; }
+  .salary-record-toggle { grid-template-columns: repeat(2, minmax(0, 1fr)) 22px; gap: 14px 16px; padding: 18px; text-align: left; }
+  .salary-record-month { grid-column: 1 / 3; }
+  .salary-record-chevron { grid-row: 1; grid-column: 3; }
+  .salary-record-toggle > span:nth-child(5) { grid-column: 1 / 3; }
+  .salary-row-actions { padding-top: 17px; }
 }
 @media (max-width: 500px) {
   .summary-grid { grid-template-columns: 1fr; }.primary-card { grid-column: auto; }
@@ -398,6 +413,7 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .salary-toolbar { align-items: stretch; flex-direction: column; }
   .salary-toolbar label { display: flex; align-items: center; justify-content: space-between; }
   .salary-summary-grid { grid-template-columns: 1fr; }
+  .salary-record-detail { padding: 0 16px 18px; }
   .salary-detail-grid { grid-template-columns: 1fr; }
   .salary-form-preview { grid-template-columns: 1fr; }
   .transaction-heading { grid-template-columns: 1fr auto; gap: 18px 12px; }
