@@ -883,8 +883,6 @@ function renderSalaryRecords() {
   const year = elements.salaryYearFilter.value;
   const records = state.salaryRecords.filter(record => year === "ALL" || record.year === year);
   const summary = summarizeSalaryRecords(state.salaryRecords, year);
-  document.querySelector("#salary-period-title").textContent = year === "ALL" ? "全部薪資摘要" : `${year} 年薪資摘要`;
-  document.querySelector("#salary-record-count").textContent = `${summary.count} 筆記錄`;
   document.querySelector("#salary-gross-total").textContent = money(summary.grossPay);
   document.querySelector("#salary-net-total").textContent = money(summary.netPay);
   elements.salaryRecordsBody.innerHTML = records.map(record => `
