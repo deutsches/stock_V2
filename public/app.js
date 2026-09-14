@@ -173,7 +173,7 @@ const elements = {
   salaryMonthField: document.querySelector("#salary-month-field"),
   salaryMonth: document.querySelector("#salary-month"),
   salaryBonusFields: document.querySelector("#salary-bonus-fields"),
-  salaryBonusYear: document.querySelector("#salary-bonus-year"),
+  salaryBonusMonth: document.querySelector("#salary-bonus-month"),
   salaryBonusTitle: document.querySelector("#salary-bonus-title"),
   salaryBonusAmount: document.querySelector("#salary-bonus-amount"),
   salaryEarningsFields: document.querySelector("#salary-earnings-fields"),
@@ -182,6 +182,7 @@ const elements = {
   salaryPosition: document.querySelector("#salary-position"),
   salaryWork: document.querySelector("#salary-work"),
   salaryMeal: document.querySelector("#salary-meal"),
+  salaryOtherEarningsLabel: document.querySelector("#salary-other-earnings-label"),
   salaryOtherEarnings: document.querySelector("#salary-other-earnings"),
   salaryHealth: document.querySelector("#salary-health"),
   salaryLabor: document.querySelector("#salary-labor"),
@@ -190,6 +191,7 @@ const elements = {
   salaryStockContribution: document.querySelector("#salary-stock-contribution"),
   salaryGroupNew: document.querySelector("#salary-group-new"),
   salaryGroup: document.querySelector("#salary-group"),
+  salaryOtherDeductionsLabel: document.querySelector("#salary-other-deductions-label"),
   salaryOtherDeductions: document.querySelector("#salary-other-deductions"),
   salaryLeaveLabel: document.querySelector("#salary-leave-label"),
   salaryLeaveHours: document.querySelector("#salary-leave-hours"),
@@ -816,17 +818,23 @@ async function removeAnnualSummaryRecord(recordId) {
 
 const salaryEarningFields = [
   ["底薪", elements.salaryBase], ["職務加給", elements.salaryPosition], ["工作加給", elements.salaryWork],
-  ["伙食津貼", elements.salaryMeal], ["其他應發", elements.salaryOtherEarnings]
+  ["伙食津貼", elements.salaryMeal]
 ];
 const salaryDeductionFields = [
   ["健保費", elements.salaryHealth], ["勞保費", elements.salaryLabor], ["福利金", elements.salaryWelfare],
   ["預扣所得", elements.salaryTax], ["持股自提", elements.salaryStockContribution],
-  ["團保費－新", elements.salaryGroupNew], ["團保費", elements.salaryGroup],
-  ["其他應扣", elements.salaryOtherDeductions]
+  ["團保費－新", elements.salaryGroupNew], ["團保費", elements.salaryGroup]
 ];
 
 function salaryItemsFromFields(fields) {
   return fields.map(([label, input]) => ({ label, amount: input.value === "" ? 0 : Number(input.value) }));
+}
+
+function customSalaryItem(labelInput, amountInput, fallbackLabel) {
+  return {
+    label: labelInput.value.trim() || fallbackLabel,
+    amount: amountInput.value === "" ? 0 : Number(amountInput.value)
+  };
 }
 
 function salaryFormRecord() {
@@ -834,13 +842,13 @@ function salaryFormRecord() {
   const title = type === "bonus" ? elements.salaryBonusTitle.value.trim() : "";
   return {
     type,
-    year: type === "bonus" ? elements.salaryBonusYear.value.trim() : elements.salaryMonth.value.slice(0, 4),
-    month: type === "salary" ? elements.salaryMonth.value : "",
+    year: type === "bonus" ? elements.salaryBonusMonth.value.slice(0, 4) : elements.salaryMonth.value.slice(0, 4),
+    month: type === "bonus" ? elements.salaryBonusMonth.value : elements.salaryMonth.value,
     title,
     earnings: type === "bonus"
       ? [{ label: title || "獎金", amount: elements.salaryBonusAmount.value === "" ? 0 : Number(elements.salaryBonusAmount.value) }]
-      : salaryItemsFromFields(salaryEarningFields),
-    deductions: salaryItemsFromFields(salaryDeductionFields),
+      : [...salaryItemsFromFields(salaryEarningFields), customSalaryItem(elements.salaryOtherEarningsLabel, elements.salaryOtherEarnings, "其他應發")],
+    deductions: [...salaryItemsFromFields(salaryDeductionFields), customSalaryItem(elements.salaryOtherDeductionsLabel, elements.salaryOtherDeductions, "其他應扣")],
     leaveLabel: type === "salary" ? elements.salaryLeaveLabel.value.trim() : "",
     leaveHours: type === "salary" && elements.salaryLeaveHours.value !== "" ? Number(elements.salaryLeaveHours.value) : 0
   };
@@ -907,6 +915,13 @@ function setSalaryFields(fields, items) {
   fields.forEach(([label, input]) => { input.value = amounts.get(label) || ""; });
 }
 
+function setCustomSalaryField(fields, items, labelInput, amountInput) {
+  const standardLabels = new Set(fields.map(([label]) => label));
+  const customItem = items.find(item => !standardLabels.has(item.label));
+  labelInput.value = customItem?.label || "";
+  amountInput.value = customItem?.amount || "";
+}
+
 function openSalaryDialog(recordId = null) {
   elements.salaryForm.reset();
   state.editingSalaryRecordId = recordId;
@@ -916,24 +931,27 @@ function openSalaryDialog(recordId = null) {
   if (record) {
     elements.salaryRecordType.value = record.type;
     if (record.type === "bonus") {
-      elements.salaryBonusYear.value = record.year;
+      elements.salaryBonusMonth.value = record.month;
       elements.salaryBonusTitle.value = record.title;
       elements.salaryBonusAmount.value = record.grossPay || "";
     } else {
       elements.salaryMonth.value = record.month;
       setSalaryFields(salaryEarningFields, record.earnings);
+      setCustomSalaryField(salaryEarningFields, record.earnings, elements.salaryOtherEarningsLabel, elements.salaryOtherEarnings);
     }
     setSalaryFields(salaryDeductionFields, record.deductions);
+    setCustomSalaryField(salaryDeductionFields, record.deductions, elements.salaryOtherDeductionsLabel, elements.salaryOtherDeductions);
     elements.salaryLeaveLabel.value = record.leaveLabel;
     elements.salaryLeaveHours.value = record.leaveHours || "";
   } else {
-    elements.salaryMonth.value = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit" }).format(new Date());
-    elements.salaryBonusYear.value = String(new Date().getFullYear());
+    const currentMonth = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit" }).format(new Date());
+    elements.salaryMonth.value = currentMonth;
+    elements.salaryBonusMonth.value = currentMonth;
   }
   elements.salaryFormError.textContent = "";
   syncSalaryFormLayout();
   elements.salaryDialog.showModal();
-  setTimeout(() => elements.salaryMonth.focus(), 50);
+  setTimeout(() => (elements.salaryRecordType.value === "bonus" ? elements.salaryBonusMonth : elements.salaryMonth).focus(), 50);
 }
 
 async function saveSalaryForm(event) {
@@ -941,15 +959,15 @@ async function saveSalaryForm(event) {
   const record = salaryFormRecord();
   const amounts = [...record.earnings, ...record.deductions].map(item => item.amount);
   const duplicate = state.salaryRecords.some(item => item.id !== state.editingSalaryRecordId && (
-    record.type === "salary" ? item.type === "salary" && item.month === record.month : item.type === "bonus" && item.year === record.year && item.title === record.title
+    record.type === "salary" ? item.type === "salary" && item.month === record.month : item.type === "bonus" && item.month === record.month && item.title === record.title
   ));
-  const validPeriod = record.type === "salary" ? /^\d{4}-\d{2}$/.test(record.month) : /^\d{4}$/.test(record.year) && Boolean(record.title);
+  const validPeriod = /^\d{4}-\d{2}$/.test(record.month) && (record.type === "salary" || Boolean(record.title));
   if (!validPeriod || amounts.some(value => !Number.isFinite(value) || value < 0) || !Number.isFinite(record.leaveHours) || record.leaveHours < 0) {
     elements.salaryFormError.textContent = "請確認紀錄期間、名稱、金額與時數均已正確填寫。";
     return;
   }
   if (duplicate) {
-    elements.salaryFormError.textContent = record.type === "salary" ? "這個月份已有薪資記錄，請直接編輯原有資料。" : "同年度已有同名獎金，請直接編輯原有資料。";
+    elements.salaryFormError.textContent = record.type === "salary" ? "這個月份已有薪資記錄，請直接編輯原有資料。" : "同月份已有同名獎金，請直接編輯原有資料。";
     return;
   }
   if (salaryRecordMetrics(record).grossPay <= 0) {

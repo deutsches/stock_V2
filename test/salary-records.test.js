@@ -34,7 +34,7 @@ test("獎金可以作為不併入月份的獨立年度記錄", () => {
   const [bonus] = normalizeSalaryRecords({
     dragonBoat: {
       type: "bonus",
-      year: "2026",
+      month: "2026-06",
       title: "端午獎金",
       earnings: [{ label: "端午獎金", amount: 29500 }],
       deductions: []
@@ -42,5 +42,14 @@ test("獎金可以作為不併入月份的獨立年度記錄", () => {
   });
   assert.equal(bonus.type, "bonus");
   assert.equal(bonus.netPay, 29500);
-  assert.equal(salaryRecordLabel(bonus), "2026 年端午獎金");
+  assert.equal(salaryRecordLabel(bonus), "2026 年 6 月 · 端午獎金");
+});
+
+test("同月份獎金會與月薪排在一起", () => {
+  const records = normalizeSalaryRecords({
+    may: { month: "2026-05", earnings: [{ label: "底薪", amount: 59000 }] },
+    june: { month: "2026-06", earnings: [{ label: "底薪", amount: 64000 }] },
+    bonus: { type: "bonus", month: "2026-06", title: "端午獎金", earnings: [{ label: "端午獎金", amount: 29500 }] }
+  });
+  assert.deepEqual(records.map(record => record.month), ["2026-06", "2026-06", "2026-05"]);
 });

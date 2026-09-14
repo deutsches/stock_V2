@@ -467,7 +467,7 @@
           <label class="full-field">紀錄類型<select id="salary-record-type"><option value="salary">月薪</option><option value="bonus">獎金</option></select></label>
           <label class="full-field" id="salary-month-field">薪資月份<input id="salary-month" type="month" /></label>
           <div class="form-grid full-field" id="salary-bonus-fields" hidden>
-            <label>獎金年度<input id="salary-bonus-year" type="number" min="2000" max="2100" step="1" /></label>
+            <label>獎金年月<input id="salary-bonus-month" type="month" /></label>
             <label>獎金名稱<input id="salary-bonus-title" type="text" maxlength="40" placeholder="例如 端午獎金" /></label>
             <label class="full-field">獎金金額<div class="price-input"><span>NT$</span><input id="salary-bonus-amount" type="number" min="0" step="1" /></div></label>
           </div>
@@ -478,7 +478,8 @@
               <label>職務加給<div class="price-input"><span>NT$</span><input id="salary-position" type="number" min="0" step="1" /></div></label>
               <label>工作加給<div class="price-input"><span>NT$</span><input id="salary-work" type="number" min="0" step="1" /></div></label>
               <label>伙食津貼<div class="price-input"><span>NT$</span><input id="salary-meal" type="number" min="0" step="1" /></div></label>
-              <label class="full-field">其他應發<div class="price-input"><span>NT$</span><input id="salary-other-earnings" type="number" min="0" step="1" /></div></label>
+              <label>其他應發名稱<input id="salary-other-earnings-label" type="text" maxlength="40" placeholder="例如 其他獎金" /></label>
+              <label>其他應發金額<div class="price-input"><span>NT$</span><input id="salary-other-earnings" type="number" min="0" step="1" /></div></label>
             </div>
           </fieldset>
           <fieldset class="salary-fieldset full-field" id="salary-deduction-fields">
@@ -491,7 +492,8 @@
               <label>持股自提<div class="price-input"><span>NT$</span><input id="salary-stock-contribution" type="number" min="0" step="1" /></div></label>
               <label>團保費－新<div class="price-input"><span>NT$</span><input id="salary-group-new" type="number" min="0" step="1" /></div></label>
               <label>團保費<div class="price-input"><span>NT$</span><input id="salary-group" type="number" min="0" step="1" /></div></label>
-              <label class="full-field">其他應扣<div class="price-input"><span>NT$</span><input id="salary-other-deductions" type="number" min="0" step="1" /></div></label>
+              <label>其他應扣名稱<input id="salary-other-deductions-label" type="text" maxlength="40" placeholder="例如 健保費（01/2026）" /></label>
+              <label>其他應扣金額<div class="price-input"><span>NT$</span><input id="salary-other-deductions" type="number" min="0" step="1" /></div></label>
             </div>
           </fieldset>
           <fieldset class="salary-fieldset full-field" id="salary-leave-fields">
@@ -513,6 +515,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite">價格已更新</div>
-    <script src="./app.js?v=20260914-salary-bonus" type="module"></script>
+    <script src="./app.js?v=20260914-salary-bonus-month" type="module"></script>
   </body>
 </html>
