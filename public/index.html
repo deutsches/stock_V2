@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f4f3ee" />
     <title>StockV2｜投資總覽</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260914-salary-filter" />
   </head>
   <body>
     <section class="auth-screen" id="auth-screen">
@@ -198,7 +198,6 @@
           </header>
 
           <div class="salary-toolbar">
-            <div><strong id="salary-period-title">年度薪資摘要</strong><span id="salary-record-count">0 個月份</span></div>
             <label>篩選年份<select id="salary-year-filter"><option value="ALL">全部年份</option></select></label>
           </div>
 
@@ -515,6 +514,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite">價格已更新</div>
-    <script src="./app.js?v=20260914-salary-bonus-month-2" type="module"></script>
+    <script src="./app.js?v=20260914-salary-filter" type="module"></script>
   </body>
 </html>
