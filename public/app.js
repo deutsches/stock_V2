@@ -33,7 +33,7 @@ import { annualSummaryTotal, canLinkAnnualSummary, normalizeAnnualSummaries, res
 import { routeFromHash, titleForRoute } from "./router.js";
 import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes } from "./price-service.js";
 import { calculateDashboardMetrics } from "./dashboard-metrics.js";
-import { normalizeSalaryRecords, salaryRecordLabel, salaryRecordMetrics, summarizeSalaryRecords } from "./salary-records.js";
+import { normalizeSalaryRecords, salaryRecordLabel, salaryRecordMetrics, summarizeSalaryRecords } from "./salary-records.js?v=20260914-salary-bonus-month";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
