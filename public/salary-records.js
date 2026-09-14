@@ -22,10 +22,10 @@ export function normalizeSalaryRecords(records) {
     .map(([id, record]) => {
       const type = record?.type === "bonus" ? "bonus" : "salary";
       const month = String(record?.month || "").trim();
-      const year = type === "bonus" ? String(record?.year || "").trim() : month.slice(0, 4);
+      const year = month.slice(0, 4) || (type === "bonus" ? String(record?.year || "").trim() : "");
       const title = String(record?.title || "").trim();
       if (type === "salary" && !/^\d{4}-\d{2}$/.test(month)) return null;
-      if (type === "bonus" && (!/^\d{4}$/.test(year) || !title)) return null;
+      if (type === "bonus" && (!/^\d{4}$/.test(year) || !title || (month && !/^\d{4}-\d{2}$/.test(month)))) return null;
       const metrics = salaryRecordMetrics(record);
       return {
         id,
@@ -42,8 +42,8 @@ export function normalizeSalaryRecords(records) {
     })
     .filter(Boolean)
     .sort((left, right) => {
-      const leftKey = left.type === "bonus" ? `${left.year}-13` : left.month;
-      const rightKey = right.type === "bonus" ? `${right.year}-13` : right.month;
+      const leftKey = left.month || `${left.year}-00`;
+      const rightKey = right.month || `${right.year}-00`;
       return rightKey.localeCompare(leftKey) || right.createdAt - left.createdAt;
     });
 }
@@ -60,7 +60,11 @@ export function summarizeSalaryRecords(records, year = "ALL") {
 }
 
 export function salaryRecordLabel(record) {
-  if (record?.type === "bonus") return `${record.year} 年${record.title}`;
+  if (record?.type === "bonus") {
+    if (!record.month) return `${record.year} 年${record.title}`;
+    const [, monthNumber] = record.month.split("-");
+    return `${record.year} 年 ${Number(monthNumber)} 月 · ${record.title}`;
+  }
   const [year, monthNumber] = String(record?.month || "").split("-");
   return `${year} 年 ${Number(monthNumber)} 月`;
 }
