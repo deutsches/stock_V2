@@ -26,7 +26,7 @@ import {
 } from "./firebase-service.js";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 import { sortHoldings } from "./holding-sort.js";
-import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js";
+import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js?v=20260914-close-only";
 import { createHistoryDemoSnapshots } from "./history-demo-data.js";
 import { filterTransactions, normalizeTransactions, summarizeTransactions, transactionMetrics } from "./transaction-records.js";
 import { annualSummaryTotal, canLinkAnnualSummary, normalizeAnnualSummaries, resolveAnnualSummaries, summarizeAnnualRecords } from "./annual-summary.js";
