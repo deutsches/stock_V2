@@ -186,7 +186,10 @@ export function deleteAnnualSummary(uid, recordId) {
 
 function salaryRecordPayload(record) {
   return {
+    type: record.type,
+    year: record.year,
     month: record.month,
+    title: record.title,
     earnings: record.earnings,
     deductions: record.deductions,
     leaveLabel: record.leaveLabel,

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeSalaryRecords, salaryRecordMetrics, summarizeSalaryRecords } from "../public/salary-records.js";
+import { normalizeSalaryRecords, salaryRecordLabel, salaryRecordMetrics, summarizeSalaryRecords } from "../public/salary-records.js";
 
 test("薪資明細會計算應發、應扣與實領", () => {
   const result = salaryRecordMetrics({
@@ -28,4 +28,19 @@ test("薪資摘要可以依年份加總", () => {
     { month: "2025-12", grossPay: 60000, deductionTotal: 5000, netPay: 55000 }
   ];
   assert.deepEqual(summarizeSalaryRecords(records, "2026"), { count: 1, grossPay: 64000, deductionTotal: 5253, netPay: 58747 });
+});
+
+test("獎金可以作為不併入月份的獨立年度記錄", () => {
+  const [bonus] = normalizeSalaryRecords({
+    dragonBoat: {
+      type: "bonus",
+      year: "2026",
+      title: "端午獎金",
+      earnings: [{ label: "端午獎金", amount: 29500 }],
+      deductions: []
+    }
+  });
+  assert.equal(bonus.type, "bonus");
+  assert.equal(bonus.netPay, 29500);
+  assert.equal(salaryRecordLabel(bonus), "2026 年端午獎金");
 });
