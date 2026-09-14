@@ -1,12 +1,14 @@
 import {
   createSnapshotIfMissing,
   deleteAnnualSummary,
+  deleteSalaryRecord,
   deleteTransaction,
   observeAuthentication,
   observeAnnualSummaries,
   observeCashBalances,
   observeConnection,
   observeHoldings,
+  observeSalaryRecords,
   observeSnapshots,
   observeTransactions,
   observeServerTimeOffset,
@@ -15,10 +17,12 @@ import {
   saveCashBalances,
   saveAnnualSummary,
   saveManualAssetRecord,
+  saveSalaryRecord,
   saveTransaction,
   signInWithGoogle,
   signOutUser,
-  updateAnnualSummary
+  updateAnnualSummary,
+  updateSalaryRecord
 } from "./firebase-service.js";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 import { sortHoldings } from "./holding-sort.js";
@@ -29,6 +33,7 @@ import { annualSummaryTotal, canLinkAnnualSummary, normalizeAnnualSummaries, res
 import { routeFromHash, titleForRoute } from "./router.js";
 import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes } from "./price-service.js";
 import { calculateDashboardMetrics } from "./dashboard-metrics.js";
+import { normalizeSalaryRecords, salaryRecordMetrics, summarizeSalaryRecords } from "./salary-records.js";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
@@ -46,10 +51,13 @@ const state = {
   unsubscribeSnapshots: null,
   unsubscribeTransactions: null,
   unsubscribeAnnualSummaries: null,
+  unsubscribeSalaryRecords: null,
   snapshots: [],
   transactions: [],
   annualSummaries: [],
+  salaryRecords: [],
   editingAnnualSummaryId: null,
+  editingSalaryRecordId: null,
   transactionMarket: "TW",
   transactionYearFilter: "ALL",
   historyRange: "YTD",
@@ -157,6 +165,32 @@ const elements = {
   annualSummaryFormError: document.querySelector("#annual-summary-form-error"),
   annualSummaryBody: document.querySelector("#annual-summary-body"),
   annualSummaryEmpty: document.querySelector("#annual-summary-empty"),
+  salaryDialog: document.querySelector("#salary-dialog"),
+  salaryDialogTitle: document.querySelector("#salary-dialog-title"),
+  salarySubmit: document.querySelector("#salary-submit"),
+  salaryForm: document.querySelector("#salary-form"),
+  salaryMonth: document.querySelector("#salary-month"),
+  salaryBase: document.querySelector("#salary-base"),
+  salaryPosition: document.querySelector("#salary-position"),
+  salaryWork: document.querySelector("#salary-work"),
+  salaryMeal: document.querySelector("#salary-meal"),
+  salaryOtherEarnings: document.querySelector("#salary-other-earnings"),
+  salaryHealth: document.querySelector("#salary-health"),
+  salaryLabor: document.querySelector("#salary-labor"),
+  salaryWelfare: document.querySelector("#salary-welfare"),
+  salaryTax: document.querySelector("#salary-tax"),
+  salaryGroupNew: document.querySelector("#salary-group-new"),
+  salaryGroup: document.querySelector("#salary-group"),
+  salaryOtherDeductions: document.querySelector("#salary-other-deductions"),
+  salaryLeaveLabel: document.querySelector("#salary-leave-label"),
+  salaryLeaveHours: document.querySelector("#salary-leave-hours"),
+  salaryFormError: document.querySelector("#salary-form-error"),
+  salaryPreviewGross: document.querySelector("#salary-preview-gross"),
+  salaryPreviewDeductions: document.querySelector("#salary-preview-deductions"),
+  salaryPreviewNet: document.querySelector("#salary-preview-net"),
+  salaryYearFilter: document.querySelector("#salary-year-filter"),
+  salaryRecordsBody: document.querySelector("#salary-records-body"),
+  salaryRecordsEmpty: document.querySelector("#salary-records-empty"),
   toast: document.querySelector("#toast")
 };
 
@@ -771,6 +805,141 @@ async function removeAnnualSummaryRecord(recordId) {
   }
 }
 
+const salaryEarningFields = [
+  ["底薪", elements.salaryBase], ["職務加給", elements.salaryPosition], ["工作加給", elements.salaryWork],
+  ["伙食津貼", elements.salaryMeal], ["其他應發", elements.salaryOtherEarnings]
+];
+const salaryDeductionFields = [
+  ["健保費", elements.salaryHealth], ["勞保費", elements.salaryLabor], ["福利金", elements.salaryWelfare],
+  ["預扣所得", elements.salaryTax], ["團保費－新", elements.salaryGroupNew], ["團保費", elements.salaryGroup],
+  ["其他應扣", elements.salaryOtherDeductions]
+];
+
+function salaryItemsFromFields(fields) {
+  return fields.map(([label, input]) => ({ label, amount: input.value === "" ? 0 : Number(input.value) }));
+}
+
+function salaryFormRecord() {
+  return {
+    month: elements.salaryMonth.value,
+    earnings: salaryItemsFromFields(salaryEarningFields),
+    deductions: salaryItemsFromFields(salaryDeductionFields),
+    leaveLabel: elements.salaryLeaveLabel.value.trim(),
+    leaveHours: elements.salaryLeaveHours.value === "" ? 0 : Number(elements.salaryLeaveHours.value)
+  };
+}
+
+function renderSalaryPreview() {
+  const metrics = salaryRecordMetrics(salaryFormRecord());
+  elements.salaryPreviewGross.textContent = money(metrics.grossPay);
+  elements.salaryPreviewDeductions.textContent = money(metrics.deductionTotal);
+  elements.salaryPreviewNet.textContent = money(metrics.netPay);
+}
+
+function salaryMonthLabel(month) {
+  const [year, monthNumber] = month.split("-");
+  return `${year} 年 ${Number(monthNumber)} 月`;
+}
+
+function salaryItemsMarkup(items) {
+  if (items.length === 0) return '<div><dt>無</dt><dd>—</dd></div>';
+  return items.map(item => `<div><dt>${escapeHtml(item.label)}</dt><dd>${money(item.amount)}</dd></div>`).join("");
+}
+
+function renderSalaryRecords() {
+  const availableYears = [...new Set(state.salaryRecords.map(record => record.month.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
+  const selectedYear = elements.salaryYearFilter.value || "ALL";
+  elements.salaryYearFilter.innerHTML = '<option value="ALL">全部年份</option>' + availableYears.map(year => `<option value="${year}">${year} 年</option>`).join("");
+  elements.salaryYearFilter.value = availableYears.includes(selectedYear) ? selectedYear : "ALL";
+  const year = elements.salaryYearFilter.value;
+  const records = state.salaryRecords.filter(record => year === "ALL" || record.month.startsWith(`${year}-`));
+  const summary = summarizeSalaryRecords(state.salaryRecords, year);
+  document.querySelector("#salary-period-title").textContent = year === "ALL" ? "全部薪資摘要" : `${year} 年薪資摘要`;
+  document.querySelector("#salary-record-count").textContent = `${summary.count} 個月份`;
+  document.querySelector("#salary-gross-total").textContent = money(summary.grossPay);
+  document.querySelector("#salary-deduction-total").textContent = money(summary.deductionTotal);
+  document.querySelector("#salary-net-total").textContent = money(summary.netPay);
+  document.querySelector("#salary-net-average").textContent = money(summary.count ? summary.netPay / summary.count : 0);
+  elements.salaryRecordsBody.innerHTML = records.map(record => `
+    <tr><td><button class="salary-month-button" data-toggle-salary="${escapeHtml(record.id)}" type="button" aria-expanded="false">${salaryMonthLabel(record.month)}</button></td>
+      <td>${money(record.grossPay)}</td><td>${money(record.deductionTotal)}</td><td class="positive"><strong>${money(record.netPay)}</strong></td>
+      <td>${record.leaveLabel ? `${escapeHtml(record.leaveLabel)} ${number(record.leaveHours)} 小時` : "—"}</td>
+      <td class="action-column"><div class="salary-row-actions"><button class="row-edit" data-edit-salary="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${salaryMonthLabel(record.month)}薪資" title="編輯薪資">✎</button><button class="row-action" data-delete-salary="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${salaryMonthLabel(record.month)}薪資" title="刪除薪資">×</button></div></td></tr>
+    <tr class="salary-detail-row" data-salary-detail="${escapeHtml(record.id)}" hidden><td colspan="6"><div class="salary-detail-grid">
+      <section><h3>應發明細</h3><dl>${salaryItemsMarkup(record.earnings)}</dl></section>
+      <section><h3>應扣明細</h3><dl>${salaryItemsMarkup(record.deductions)}</dl></section>
+    </div></td></tr>
+  `).join("");
+  elements.salaryRecordsEmpty.hidden = records.length > 0;
+  elements.salaryRecordsBody.closest("table").hidden = records.length === 0;
+}
+
+function setSalaryFields(fields, items) {
+  const amounts = new Map(items.map(item => [item.label, item.amount]));
+  fields.forEach(([label, input]) => { input.value = amounts.get(label) || ""; });
+}
+
+function openSalaryDialog(recordId = null) {
+  elements.salaryForm.reset();
+  state.editingSalaryRecordId = recordId;
+  const record = recordId ? state.salaryRecords.find(item => item.id === recordId) : null;
+  elements.salaryDialogTitle.textContent = record ? `編輯 ${salaryMonthLabel(record.month)}` : "新增薪資記錄";
+  elements.salarySubmit.textContent = record ? "儲存修改" : "儲存薪資記錄";
+  if (record) {
+    elements.salaryMonth.value = record.month;
+    setSalaryFields(salaryEarningFields, record.earnings);
+    setSalaryFields(salaryDeductionFields, record.deductions);
+    elements.salaryLeaveLabel.value = record.leaveLabel;
+    elements.salaryLeaveHours.value = record.leaveHours || "";
+  } else {
+    elements.salaryMonth.value = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit" }).format(new Date());
+  }
+  elements.salaryFormError.textContent = "";
+  renderSalaryPreview();
+  elements.salaryDialog.showModal();
+  setTimeout(() => elements.salaryMonth.focus(), 50);
+}
+
+async function saveSalaryForm(event) {
+  event.preventDefault();
+  const record = salaryFormRecord();
+  const amounts = [...record.earnings, ...record.deductions].map(item => item.amount);
+  const duplicate = state.salaryRecords.some(item => item.month === record.month && item.id !== state.editingSalaryRecordId);
+  if (!/^\d{4}-\d{2}$/.test(record.month) || amounts.some(value => !Number.isFinite(value) || value < 0) || !Number.isFinite(record.leaveHours) || record.leaveHours < 0) {
+    elements.salaryFormError.textContent = "請確認月份、薪資、扣款與時數均已正確填寫。";
+    return;
+  }
+  if (duplicate) {
+    elements.salaryFormError.textContent = "這個月份已有薪資記錄，請直接編輯原有資料。";
+    return;
+  }
+  if (salaryRecordMetrics(record).grossPay <= 0) {
+    elements.salaryFormError.textContent = "應發金額必須大於 0。";
+    return;
+  }
+  try {
+    const editing = state.editingSalaryRecordId;
+    if (editing) await updateSalaryRecord(state.user.uid, editing, record);
+    else await saveSalaryRecord(state.user.uid, record);
+    elements.salaryDialog.close();
+    state.editingSalaryRecordId = null;
+    showToast(`${salaryMonthLabel(record.month)}薪資已${editing ? "更新" : "新增"}`);
+  } catch (error) {
+    elements.salaryFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
+  }
+}
+
+async function removeSalaryRecord(recordId) {
+  const record = state.salaryRecords.find(item => item.id === recordId);
+  if (!record || !window.confirm(`確定刪除 ${salaryMonthLabel(record.month)}的薪資記錄？`)) return;
+  try {
+    await deleteSalaryRecord(state.user.uid, recordId);
+    showToast(`${salaryMonthLabel(record.month)}薪資已刪除`);
+  } catch (error) {
+    showToast(`刪除失敗：${friendlyFirebaseError(error)}`);
+  }
+}
+
 function openPriceDialog(key = state.holdings[0] ? holdingKey(state.holdings[0]) : "") {
   elements.symbol.innerHTML = state.holdings.map(item => `<option value="${escapeHtml(holdingKey(item))}">${escapeHtml(item.symbol)} · ${escapeHtml(item.name)}</option>`).join("");
   elements.symbol.value = key;
@@ -1145,6 +1314,7 @@ document.querySelector("#open-api-settings").addEventListener("click", openApiSe
 document.querySelector("#open-history-record-dialog").addEventListener("click", openHistoryRecordDialog);
 document.querySelector("#open-transaction-dialog").addEventListener("click", openTransactionDialog);
 document.querySelector("#open-annual-summary-dialog").addEventListener("click", () => openAnnualSummaryDialog());
+document.querySelector("#open-salary-dialog").addEventListener("click", () => openSalaryDialog());
 document.querySelector("#delete-holding").addEventListener("click", deleteHolding);
 elements.cashTwd.addEventListener("input", renderCashPreview);
 elements.cashUsd.addEventListener("input", renderCashPreview);
@@ -1170,6 +1340,9 @@ elements.transactionForm.addEventListener("submit", addTransaction);
 elements.annualSummaryForm.addEventListener("submit", addAnnualSummary);
 elements.annualSummaryLabel.addEventListener("input", syncAnnualLinkForm);
 elements.annualSummaryLinked.addEventListener("change", syncAnnualLinkForm);
+elements.salaryForm.addEventListener("submit", saveSalaryForm);
+elements.salaryForm.querySelectorAll('input[type="number"]').forEach(input => input.addEventListener("input", renderSalaryPreview));
+elements.salaryYearFilter.addEventListener("change", renderSalaryRecords);
 elements.transactionYearFilter.addEventListener("change", () => {
   state.transactionYearFilter = elements.transactionYearFilter.value;
   renderTransactions();
@@ -1210,6 +1383,18 @@ document.querySelector(".annual-summary-page").addEventListener("click", event =
   if (editButton) openAnnualSummaryDialog(editButton.dataset.editAnnualSummary);
   const annualButton = event.target.closest("[data-delete-annual-summary]");
   if (annualButton) removeAnnualSummaryRecord(annualButton.dataset.deleteAnnualSummary);
+});
+document.querySelector(".salary-page").addEventListener("click", event => {
+  const toggleButton = event.target.closest("[data-toggle-salary]");
+  if (toggleButton) {
+    const detail = document.querySelector(`[data-salary-detail="${CSS.escape(toggleButton.dataset.toggleSalary)}"]`);
+    detail.hidden = !detail.hidden;
+    toggleButton.setAttribute("aria-expanded", String(!detail.hidden));
+  }
+  const editButton = event.target.closest("[data-edit-salary]");
+  if (editButton) openSalaryDialog(editButton.dataset.editSalary);
+  const deleteButton = event.target.closest("[data-delete-salary]");
+  if (deleteButton) removeSalaryRecord(deleteButton.dataset.deleteSalary);
 });
 document.querySelectorAll("[data-history-range]").forEach(button => {
   button.addEventListener("click", () => {
@@ -1263,11 +1448,13 @@ observeAuthentication(user => {
   state.unsubscribeSnapshots?.();
   state.unsubscribeTransactions?.();
   state.unsubscribeAnnualSummaries?.();
+  state.unsubscribeSalaryRecords?.();
   state.unsubscribeHoldings = null;
   state.unsubscribeCash = null;
   state.unsubscribeSnapshots = null;
   state.unsubscribeTransactions = null;
   state.unsubscribeAnnualSummaries = null;
+  state.unsubscribeSalaryRecords = null;
   state.user = user;
   state.firebaseLoaded = false;
   state.cashLoaded = false;
@@ -1278,9 +1465,11 @@ observeAuthentication(user => {
     state.snapshots = [];
     state.transactions = [];
     state.annualSummaries = [];
+    state.salaryRecords = [];
     renderHistoryChart();
     renderTransactions();
     renderAnnualSummaries();
+    renderSalaryRecords();
     elements.appShell.hidden = true;
     elements.authScreen.hidden = false;
     elements.authMessage.textContent = "請使用已啟用的 Google 帳號登入";
@@ -1326,6 +1515,14 @@ observeAuthentication(user => {
     state.annualSummaries = [];
     renderAnnualSummaries();
     showToast(`年度總記錄讀取失敗：${friendlyFirebaseError(error)}`);
+  });
+  state.unsubscribeSalaryRecords = observeSalaryRecords(user.uid, records => {
+    state.salaryRecords = normalizeSalaryRecords(records);
+    renderSalaryRecords();
+  }, error => {
+    state.salaryRecords = [];
+    renderSalaryRecords();
+    showToast(`薪資記錄讀取失敗：${friendlyFirebaseError(error)}`);
   });
   state.unsubscribeHoldings = observeHoldings(user.uid, async holdings => {
     if (!state.firebaseLoaded) {

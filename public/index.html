@@ -36,6 +36,9 @@
           <a class="nav-item" href="#/annual-summary" data-route-link="annual-summary">
             <span class="nav-icon">年</span><span>年度績效</span>
           </a>
+          <a class="nav-item" href="#/salary" data-route-link="salary">
+            <span class="nav-icon">薪</span><span>薪資記錄</span>
+          </a>
           <a class="nav-item" href="#/history" data-route-link="history">
             <span class="nav-icon">◷</span><span>資產歷史</span>
           </a>
@@ -180,6 +183,42 @@
                 <tbody id="annual-summary-body"></tbody>
               </table>
               <div class="empty-state compact-empty" id="annual-summary-empty"><strong>尚無年度總記錄</strong><span>每個年度或個股都可以作為獨立項目新增。</span></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="route-page salary-page" data-route-page="salary" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">SALARY RECORDS</p>
+              <h1>薪資記錄</h1>
+              <p class="subtitle">按月份保存薪資、扣款與實領明細。</p>
+            </div>
+            <button class="button primary" id="open-salary-dialog" type="button">＋ 新增薪資記錄</button>
+          </header>
+
+          <div class="salary-toolbar">
+            <div><strong id="salary-period-title">年度薪資摘要</strong><span id="salary-record-count">0 個月份</span></div>
+            <label>篩選年份<select id="salary-year-filter"><option value="ALL">全部年份</option></select></label>
+          </div>
+
+          <section class="salary-summary-grid" aria-label="薪資摘要">
+            <article><small>應發合計</small><strong id="salary-gross-total">NT$0</strong></article>
+            <article><small>應扣合計</small><strong id="salary-deduction-total">NT$0</strong></article>
+            <article class="salary-net-card"><small>實領合計</small><strong id="salary-net-total">NT$0</strong></article>
+            <article><small>平均實領</small><strong id="salary-net-average">NT$0</strong></article>
+          </section>
+
+          <section class="salary-records-section" aria-labelledby="salary-list-title">
+            <div class="section-heading">
+              <div><p class="eyebrow">MONTHLY DETAILS</p><h2 id="salary-list-title">每月薪資</h2><p>點選月份列可查看完整明細</p></div>
+            </div>
+            <div class="table-wrap">
+              <table class="salary-table">
+                <thead><tr><th>月份</th><th>應發</th><th>應扣</th><th>實領</th><th>請假／時數</th><th class="action-column"><span class="sr-only">操作</span></th></tr></thead>
+                <tbody id="salary-records-body"></tbody>
+              </table>
+              <div class="empty-state compact-empty" id="salary-records-empty"><strong>尚無薪資記錄</strong><span>使用「新增薪資記錄」建立第一個月份。</span></div>
             </div>
           </section>
         </div>
@@ -422,6 +461,52 @@
         </div>
         <p class="form-error" id="annual-summary-form-error" role="alert"></p>
         <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" id="annual-summary-submit" type="submit">儲存總記錄</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="salary-dialog" class="salary-dialog">
+      <form method="dialog" id="salary-form" autocomplete="off">
+        <div class="dialog-header"><div><p class="eyebrow">MONTHLY SALARY</p><h2 id="salary-dialog-title">新增薪資記錄</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <p class="dialog-copy">輸入薪資單上的各項金額，應發、應扣與實領會自動計算。</p>
+        <div class="form-grid salary-form-grid">
+          <label class="full-field">薪資月份<input id="salary-month" type="month" required /></label>
+          <fieldset class="salary-fieldset full-field">
+            <legend>應發項目</legend>
+            <div class="form-grid">
+              <label>底薪<div class="price-input"><span>NT$</span><input id="salary-base" type="number" min="0" step="1" /></div></label>
+              <label>職務加給<div class="price-input"><span>NT$</span><input id="salary-position" type="number" min="0" step="1" /></div></label>
+              <label>工作加給<div class="price-input"><span>NT$</span><input id="salary-work" type="number" min="0" step="1" /></div></label>
+              <label>伙食津貼<div class="price-input"><span>NT$</span><input id="salary-meal" type="number" min="0" step="1" /></div></label>
+              <label class="full-field">其他應發<div class="price-input"><span>NT$</span><input id="salary-other-earnings" type="number" min="0" step="1" /></div></label>
+            </div>
+          </fieldset>
+          <fieldset class="salary-fieldset full-field">
+            <legend>應扣項目</legend>
+            <div class="form-grid">
+              <label>健保費<div class="price-input"><span>NT$</span><input id="salary-health" type="number" min="0" step="1" /></div></label>
+              <label>勞保費<div class="price-input"><span>NT$</span><input id="salary-labor" type="number" min="0" step="1" /></div></label>
+              <label>福利金<div class="price-input"><span>NT$</span><input id="salary-welfare" type="number" min="0" step="1" /></div></label>
+              <label>預扣所得<div class="price-input"><span>NT$</span><input id="salary-tax" type="number" min="0" step="1" /></div></label>
+              <label>團保費－新<div class="price-input"><span>NT$</span><input id="salary-group-new" type="number" min="0" step="1" /></div></label>
+              <label>團保費<div class="price-input"><span>NT$</span><input id="salary-group" type="number" min="0" step="1" /></div></label>
+              <label class="full-field">其他應扣<div class="price-input"><span>NT$</span><input id="salary-other-deductions" type="number" min="0" step="1" /></div></label>
+            </div>
+          </fieldset>
+          <fieldset class="salary-fieldset full-field">
+            <legend>加班／請假</legend>
+            <div class="form-grid">
+              <label>項目<input id="salary-leave-label" type="text" maxlength="40" placeholder="例如 病假半薪" /></label>
+              <label>時數<input id="salary-leave-hours" type="number" min="0" step="0.25" /></label>
+            </div>
+          </fieldset>
+          <div class="salary-form-preview full-field" aria-live="polite">
+            <span><small>應發</small><strong id="salary-preview-gross">NT$0</strong></span>
+            <span><small>應扣</small><strong id="salary-preview-deductions">NT$0</strong></span>
+            <span><small>實領</small><strong id="salary-preview-net">NT$0</strong></span>
+          </div>
+        </div>
+        <p class="form-error" id="salary-form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" id="salary-submit" type="submit">儲存薪資記錄</button></div>
       </form>
     </dialog>
 

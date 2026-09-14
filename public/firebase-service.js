@@ -91,6 +91,12 @@ export function observeAnnualSummaries(uid, onData, onError) {
   }, onError);
 }
 
+export function observeSalaryRecords(uid, onData, onError) {
+  return onValue(ref(database, userPath(uid, "salaryRecords")), snapshot => {
+    onData(snapshot.val());
+  }, onError);
+}
+
 export function replaceHoldings(uid, holdings) {
   const records = holdings.reduce((result, holding) => {
     result[firebaseHoldingKey(holding)] = {
@@ -176,6 +182,32 @@ export function updateAnnualSummary(uid, recordId, record) {
 
 export function deleteAnnualSummary(uid, recordId) {
   return remove(ref(database, userPath(uid, `annualSummaries/${recordId}`)));
+}
+
+function salaryRecordPayload(record) {
+  return {
+    month: record.month,
+    earnings: record.earnings,
+    deductions: record.deductions,
+    leaveLabel: record.leaveLabel,
+    leaveHours: record.leaveHours
+  };
+}
+
+export function saveSalaryRecord(uid, record) {
+  const salaryRef = push(ref(database, userPath(uid, "salaryRecords")));
+  return set(salaryRef, { ...salaryRecordPayload(record), createdAt: serverTimestamp() });
+}
+
+export function updateSalaryRecord(uid, recordId, record) {
+  return update(ref(database, userPath(uid, `salaryRecords/${recordId}`)), {
+    ...salaryRecordPayload(record),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export function deleteSalaryRecord(uid, recordId) {
+  return remove(ref(database, userPath(uid, `salaryRecords/${recordId}`)));
 }
 
 export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {

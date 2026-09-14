@@ -25,3 +25,9 @@ test("年度績效網址會切換獨立頁面與標題", () => {
   assert.equal(routeFromHash("#/ANNUAL-SUMMARY"), "annual-summary");
   assert.equal(titleForRoute("annual-summary"), "StockV2｜年度績效");
 });
+
+test("薪資記錄網址會切換獨立頁面與標題", () => {
+  assert.equal(routeFromHash("#/salary"), "salary");
+  assert.equal(routeFromHash("#/SALARY"), "salary");
+  assert.equal(titleForRoute("salary"), "StockV2｜薪資記錄");
+});
