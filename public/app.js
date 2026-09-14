@@ -179,6 +179,7 @@ const elements = {
   salaryLabor: document.querySelector("#salary-labor"),
   salaryWelfare: document.querySelector("#salary-welfare"),
   salaryTax: document.querySelector("#salary-tax"),
+  salaryStockContribution: document.querySelector("#salary-stock-contribution"),
   salaryGroupNew: document.querySelector("#salary-group-new"),
   salaryGroup: document.querySelector("#salary-group"),
   salaryOtherDeductions: document.querySelector("#salary-other-deductions"),
@@ -811,7 +812,8 @@ const salaryEarningFields = [
 ];
 const salaryDeductionFields = [
   ["健保費", elements.salaryHealth], ["勞保費", elements.salaryLabor], ["福利金", elements.salaryWelfare],
-  ["預扣所得", elements.salaryTax], ["團保費－新", elements.salaryGroupNew], ["團保費", elements.salaryGroup],
+  ["預扣所得", elements.salaryTax], ["持股自提", elements.salaryStockContribution],
+  ["團保費－新", elements.salaryGroupNew], ["團保費", elements.salaryGroup],
   ["其他應扣", elements.salaryOtherDeductions]
 ];
 
