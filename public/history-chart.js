@@ -37,7 +37,7 @@ export function normalizeSnapshots(records) {
     .map(snapshot => ({ ...snapshot, timestamp: snapshotTimestamp(snapshot) }))
     .filter(snapshot =>
       /^\d{4}-\d{2}-\d{2}$/.test(snapshot.localDate || "") &&
-      ["0630", "1430", "manual"].includes(snapshot.slot) &&
+      ["1430", "manual"].includes(snapshot.slot) &&
       Number.isFinite(snapshot.timestamp) &&
       Number.isFinite(snapshot.totalAssetsTwd) &&
       (snapshot.slot === "manual" || (Number.isFinite(snapshot.marketValueTwd) && Number.isFinite(snapshot.costTwd)))

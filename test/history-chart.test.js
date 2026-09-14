@@ -11,10 +11,10 @@ const records = {
   "2026-08-17_1430": { localDate: "2026-08-17", slot: "1430", createdAt: Date.parse("2026-08-17T14:30:00+08:00"), cash: { twd: 40, usd: 2, totalTwd: 100.66 }, total: { marketValueTwd: 1250, totalAssetsTwd: 1350.66, costTwd: 950 } }
 };
 
-test("正規化快照會過濾無效資料並依時間排序", () => {
+test("正規化快照只保留 14:30 與手動基準，並依時間排序", () => {
   const snapshots = normalizeSnapshots(records);
-  assert.equal(snapshots.length, 4);
-  assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-01-01_manual", "2026-08-09_1430", "2026-08-17_0630", "2026-08-17_1430"]);
+  assert.equal(snapshots.length, 3);
+  assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-01-01_manual", "2026-08-09_1430", "2026-08-17_1430"]);
   assert.equal(snapshots[0].marketValueTwd, null);
   assert.equal(snapshots.at(-1).totalAssetsTwd, 1350.66);
   assert.equal(snapshots.at(-1).cashTwd, 100.66);
@@ -24,15 +24,23 @@ test("正規化快照會過濾無效資料並依時間排序", () => {
 
 test("歷史範圍以最新快照往前篩選", () => {
   const snapshots = normalizeSnapshots(records);
-  assert.equal(filterSnapshotsByRange(snapshots, "7").length, 2);
-  assert.equal(filterSnapshotsByRange(snapshots, "30").length, 3);
-  assert.equal(filterSnapshotsByRange(snapshots, "YTD").length, 4);
-  assert.equal(filterSnapshotsByRange(snapshots, "ALL").length, 4);
+  assert.equal(filterSnapshotsByRange(snapshots, "7").length, 1);
+  assert.equal(filterSnapshotsByRange(snapshots, "30").length, 2);
+  assert.equal(filterSnapshotsByRange(snapshots, "YTD").length, 3);
+  assert.equal(filterSnapshotsByRange(snapshots, "ALL").length, 3);
+});
+
+test("舊日期只有 06:30 快照時也不會顯示", () => {
+  const snapshots = normalizeSnapshots({
+    "2026-08-16_0630": { localDate: "2026-08-16", slot: "0630", total: { marketValueTwd: 1200, costTwd: 950 } },
+    "2026-08-17_1430": { localDate: "2026-08-17", slot: "1430", total: { marketValueTwd: 1250, costTwd: 950 } }
+  });
+  assert.deepEqual(snapshots.map(snapshot => snapshot.id), ["2026-08-17_1430"]);
 });
 
 test("曲線模型會產生總資產與持股市值路徑", () => {
   const model = buildHistoryChartModel(normalizeSnapshots(records));
-  assert.equal(model.points.length, 4);
+  assert.equal(model.points.length, 3);
   assert.match(model.assetsPath, /^M .+ L /);
   assert.match(model.holdingsPath, /^M .+ L /);
   assert.equal(model.yTicks.length, 5);
