@@ -857,21 +857,28 @@ function renderSalaryRecords() {
   document.querySelector("#salary-period-title").textContent = year === "ALL" ? "全部薪資摘要" : `${year} 年薪資摘要`;
   document.querySelector("#salary-record-count").textContent = `${summary.count} 個月份`;
   document.querySelector("#salary-gross-total").textContent = money(summary.grossPay);
-  document.querySelector("#salary-deduction-total").textContent = money(summary.deductionTotal);
   document.querySelector("#salary-net-total").textContent = money(summary.netPay);
-  document.querySelector("#salary-net-average").textContent = money(summary.count ? summary.netPay / summary.count : 0);
   elements.salaryRecordsBody.innerHTML = records.map(record => `
-    <tr><td><button class="salary-month-button" data-toggle-salary="${escapeHtml(record.id)}" type="button" aria-expanded="false">${salaryMonthLabel(record.month)}</button></td>
-      <td>${money(record.grossPay)}</td><td>${money(record.deductionTotal)}</td><td class="positive"><strong>${money(record.netPay)}</strong></td>
-      <td>${record.leaveLabel ? `${escapeHtml(record.leaveLabel)} ${number(record.leaveHours)} 小時` : "—"}</td>
-      <td class="action-column"><div class="salary-row-actions"><button class="row-edit" data-edit-salary="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${salaryMonthLabel(record.month)}薪資" title="編輯薪資">✎</button><button class="row-action" data-delete-salary="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${salaryMonthLabel(record.month)}薪資" title="刪除薪資">×</button></div></td></tr>
-    <tr class="salary-detail-row" data-salary-detail="${escapeHtml(record.id)}" hidden><td colspan="6"><div class="salary-detail-grid">
+    <article class="salary-record-card">
+      <div class="salary-record-row">
+        <button class="salary-record-toggle" data-toggle-salary="${escapeHtml(record.id)}" type="button" aria-expanded="false" aria-controls="salary-detail-${escapeHtml(record.id)}">
+          <span class="salary-record-month"><small>月份</small><strong>${salaryMonthLabel(record.month)}</strong></span>
+          <span><small>應發</small><strong>${money(record.grossPay)}</strong></span>
+          <span><small>應扣</small><strong>${money(record.deductionTotal)}</strong></span>
+          <span class="salary-record-net"><small>實領</small><strong>${money(record.netPay)}</strong></span>
+          <span><small>請假／時數</small><strong>${record.leaveLabel ? `${escapeHtml(record.leaveLabel)} ${number(record.leaveHours)} 小時` : "—"}</strong></span>
+          <span class="salary-record-chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="salary-row-actions"><button class="row-edit" data-edit-salary="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${salaryMonthLabel(record.month)}薪資" title="編輯薪資">✎</button><button class="row-action" data-delete-salary="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${salaryMonthLabel(record.month)}薪資" title="刪除薪資">×</button></div>
+      </div>
+      <div class="salary-record-detail" id="salary-detail-${escapeHtml(record.id)}" data-salary-detail="${escapeHtml(record.id)}" hidden><div class="salary-detail-grid">
       <section><h3>應發明細</h3><dl>${salaryItemsMarkup(record.earnings)}</dl></section>
       <section><h3>應扣明細</h3><dl>${salaryItemsMarkup(record.deductions)}</dl></section>
-    </div></td></tr>
+      </div></div>
+    </article>
   `).join("");
   elements.salaryRecordsEmpty.hidden = records.length > 0;
-  elements.salaryRecordsBody.closest("table").hidden = records.length === 0;
+  elements.salaryRecordsBody.hidden = records.length === 0;
 }
 
 function setSalaryFields(fields, items) {
