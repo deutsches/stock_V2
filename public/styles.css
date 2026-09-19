@@ -314,6 +314,8 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
 .price-input:focus-within { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed; }
 .price-input span { color: var(--muted); font-size: 11px; text-align: center; }
 .price-input input { border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+.price-input.suffix-input { grid-template-columns: minmax(0, 1fr) 48px; }
+.price-input.suffix-input input { min-width: 0; border-right: 1px solid var(--line); border-left: 0; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 26px; }
 .dialog-actions.split-actions { align-items: center; justify-content: space-between; }
 .split-actions > div { display: flex; gap: 9px; }
