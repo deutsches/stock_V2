@@ -113,6 +113,8 @@ const elements = {
   automaticPriceUpdates: document.querySelector("#automatic-price-updates"),
   apiSettingsStatus: document.querySelector("#api-settings-status"),
   updatePricesNow: document.querySelector("#update-prices-now"),
+  updateTwPrices: document.querySelector("#update-tw-prices"),
+  updateUsPrices: document.querySelector("#update-us-prices"),
   historyRecordDialog: document.querySelector("#history-record-dialog"),
   historyRecordForm: document.querySelector("#history-record-form"),
   historyRecordDate: document.querySelector("#history-record-date"),
@@ -1251,19 +1253,27 @@ function openApiSettings() {
   elements.apiSettingsDialog.showModal();
 }
 
-async function checkAutomaticPrices({ force = false, report = false } = {}) {
+function setPriceUpdateControlsDisabled(disabled) {
+  [elements.updatePricesNow, elements.updateTwPrices, elements.updateUsPrices]
+    .forEach(button => { button.disabled = disabled; });
+}
+
+async function checkAutomaticPrices({ force = false, report = false, requestedMarkets = null } = {}) {
   if (!state.user || !state.firebaseLoaded || state.priceUpdateInFlight) return { updatedCount: 0, messages: [] };
   if (!force && !automaticPricesEnabled()) return { updatedCount: 0, messages: [] };
 
   const schedule = duePriceMarkets(new Date(), state.serverTimeOffset);
   const heldMarkets = new Set(state.holdings.map(holding => holding.market));
-  const markets = (force ? ["US", "TW"] : schedule.markets)
+  const candidates = Array.isArray(requestedMarkets)
+    ? requestedMarkets.filter(market => ["TW", "US"].includes(market))
+    : force ? ["US", "TW"] : schedule.markets;
+  const markets = [...new Set(candidates)]
     .filter(market => heldMarkets.has(market))
     .filter(market => force || localStorage.getItem(priceUpdateMarker(market, schedule.date)) !== "done");
   if (markets.length === 0) return { updatedCount: 0, messages: [] };
 
   state.priceUpdateInFlight = true;
-  elements.updatePricesNow.disabled = true;
+  setPriceUpdateControlsDisabled(true);
   const messages = [];
   const completedMarkets = [];
   let nextHoldings = state.holdings;
@@ -1313,7 +1323,20 @@ async function checkAutomaticPrices({ force = false, report = false } = {}) {
     return { updatedCount: 0, messages };
   } finally {
     state.priceUpdateInFlight = false;
-    elements.updatePricesNow.disabled = false;
+    setPriceUpdateControlsDisabled(false);
+  }
+}
+
+async function updateMarketPrices(market) {
+  const label = market === "TW" ? "台股" : "美股";
+  const button = market === "TW" ? elements.updateTwPrices : elements.updateUsPrices;
+  const originalText = button.textContent;
+  button.textContent = `${label}更新中…`;
+  const result = await checkAutomaticPrices({ force: true, report: true, requestedMarkets: [market] });
+  if (result.updatedCount === 0 && !result.messages.length) showToast(`目前沒有${label}持股`);
+  button.textContent = result.updatedCount > 0 ? `✓ ${label}已更新` : originalText;
+  if (result.updatedCount > 0) {
+    setTimeout(() => { button.textContent = originalText; }, 1800);
   }
 }
 
@@ -1389,6 +1412,8 @@ elements.updatePricesNow.addEventListener("click", async () => {
   elements.apiSettingsStatus.textContent = result.messages.join("；") || "目前沒有可更新的持股";
   elements.apiSettingsStatus.classList.toggle("success", result.updatedCount > 0);
 });
+elements.updateTwPrices.addEventListener("click", () => updateMarketPrices("TW"));
+elements.updateUsPrices.addEventListener("click", () => updateMarketPrices("US"));
 elements.historyRecordForm.addEventListener("submit", saveHistoryRecord);
 elements.transactionMarket.addEventListener("change", syncTransactionForm);
 elements.transactionForm.addEventListener("submit", addTransaction);
