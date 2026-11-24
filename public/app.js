@@ -1,6 +1,7 @@
 import {
   createSnapshotIfMissing,
   deleteAnnualSummary,
+  deleteExchangeRecord,
   deleteSalaryRecord,
   deleteTransaction,
   observeAuthentication,
@@ -8,6 +9,7 @@ import {
   observeCashBalances,
   observeConnection,
   observeHoldings,
+  observeExchangeRecords,
   observeSalaryRecords,
   observeSnapshots,
   observeTransactions,
@@ -16,12 +18,14 @@ import {
   replaceSnapshot,
   saveCashBalances,
   saveAnnualSummary,
+  saveExchangeRecord,
   saveManualAssetRecord,
   saveSalaryRecord,
   saveTransaction,
   signInWithGoogle,
   signOutUser,
   updateAnnualSummary,
+  updateExchangeRecord,
   updateSalaryRecord
 } from "./firebase-service.js";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
@@ -34,6 +38,7 @@ import { routeFromHash, titleForRoute } from "./router.js";
 import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes } from "./price-service.js";
 import { calculateDashboardMetrics } from "./dashboard-metrics.js";
 import { normalizeSalaryRecords, salaryRecordLabel, salaryRecordMetrics, summarizeSalaryRecords } from "./salary-records.js?v=20260914-salary-bonus-month";
+import { exchangeRecordMetrics, filterExchangeRecords, normalizeExchangeRecords, summarizeExchangeRecords } from "./exchange-records.js?v=20261124-exchange-records";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
@@ -52,12 +57,15 @@ const state = {
   unsubscribeTransactions: null,
   unsubscribeAnnualSummaries: null,
   unsubscribeSalaryRecords: null,
+  unsubscribeExchangeRecords: null,
   snapshots: [],
   transactions: [],
   annualSummaries: [],
   salaryRecords: [],
+  exchangeRecords: [],
   editingAnnualSummaryId: null,
   editingSalaryRecordId: null,
+  editingExchangeRecordId: null,
   transactionMarket: "TW",
   transactionYearFilter: "ALL",
   transactionSearch: "",
@@ -206,6 +214,24 @@ const elements = {
   salaryYearFilter: document.querySelector("#salary-year-filter"),
   salaryRecordsBody: document.querySelector("#salary-records-body"),
   salaryRecordsEmpty: document.querySelector("#salary-records-empty"),
+  exchangeDialog: document.querySelector("#exchange-dialog"),
+  exchangeDialogTitle: document.querySelector("#exchange-dialog-title"),
+  exchangeSubmit: document.querySelector("#exchange-submit"),
+  exchangeForm: document.querySelector("#exchange-form"),
+  exchangeDate: document.querySelector("#exchange-date"),
+  exchangeUsdAmount: document.querySelector("#exchange-usd-amount"),
+  exchangeCostRate: document.querySelector("#exchange-cost-rate"),
+  exchangeExecutionRate: document.querySelector("#exchange-execution-rate"),
+  exchangeTwdReceived: document.querySelector("#exchange-twd-received"),
+  exchangeFee: document.querySelector("#exchange-fee"),
+  exchangeNote: document.querySelector("#exchange-note"),
+  exchangeFormError: document.querySelector("#exchange-form-error"),
+  exchangePreviewCost: document.querySelector("#exchange-preview-cost"),
+  exchangePreviewQuoted: document.querySelector("#exchange-preview-quoted"),
+  exchangePreviewProfit: document.querySelector("#exchange-preview-profit"),
+  exchangeYearFilter: document.querySelector("#exchange-year-filter"),
+  exchangeRecordsBody: document.querySelector("#exchange-records-body"),
+  exchangeRecordsEmpty: document.querySelector("#exchange-records-empty"),
   toast: document.querySelector("#toast")
 };
 
@@ -1004,6 +1030,123 @@ async function removeSalaryRecord(recordId) {
   }
 }
 
+function exchangeFormRecord() {
+  return {
+    date: elements.exchangeDate.value,
+    usdAmount: Number(elements.exchangeUsdAmount.value),
+    costRate: Number(elements.exchangeCostRate.value),
+    executionRate: Number(elements.exchangeExecutionRate.value),
+    twdReceived: Number(elements.exchangeTwdReceived.value),
+    feeTwd: Number(elements.exchangeFee.value || 0),
+    note: elements.exchangeNote.value.trim()
+  };
+}
+
+function renderExchangePreview() {
+  const metrics = exchangeRecordMetrics(exchangeFormRecord());
+  elements.exchangePreviewCost.textContent = money(metrics.costTwd);
+  elements.exchangePreviewQuoted.textContent = money(metrics.quotedTwd);
+  elements.exchangePreviewProfit.textContent = money(metrics.realizedProfitTwd, "TW", true);
+  elements.exchangePreviewProfit.className = metrics.realizedProfitTwd >= 0 ? "positive" : "negative";
+}
+
+function renderExchangeRecords() {
+  const availableYears = [...new Set(state.exchangeRecords.map(record => record.date.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
+  const selectedYear = elements.exchangeYearFilter.value || "ALL";
+  elements.exchangeYearFilter.innerHTML = '<option value="ALL">全部年份</option>' + availableYears.map(year => `<option value="${year}">${year} 年</option>`).join("");
+  elements.exchangeYearFilter.value = availableYears.includes(selectedYear) ? selectedYear : "ALL";
+  const records = filterExchangeRecords(state.exchangeRecords, elements.exchangeYearFilter.value);
+  const summary = summarizeExchangeRecords(state.exchangeRecords, elements.exchangeYearFilter.value);
+  document.querySelector("#exchange-usd-total").textContent = money(summary.usdAmount, "US");
+  document.querySelector("#exchange-twd-total").textContent = money(summary.twdReceived);
+  const profitNode = document.querySelector("#exchange-profit-total");
+  const rateNode = document.querySelector("#exchange-profit-rate");
+  profitNode.textContent = money(summary.realizedProfitTwd, "TW", true);
+  rateNode.textContent = percent(summary.realizedReturnRate);
+  [profitNode, rateNode].forEach(node => {
+    node.classList.toggle("positive", summary.realizedProfitTwd >= 0);
+    node.classList.toggle("negative", summary.realizedProfitTwd < 0);
+  });
+  elements.exchangeRecordsBody.innerHTML = records.map(record => `
+    <tr>
+      <td>${escapeHtml(record.date)}</td>
+      <td>${money(record.usdAmount, "US")}</td>
+      <td>${number(record.costRate, 4)}</td>
+      <td>${number(record.executionRate, 4)}</td>
+      <td>${money(record.twdReceived)}</td>
+      <td>${money(record.feeTwd)}</td>
+      <td class="${record.realizedProfitTwd >= 0 ? "positive" : "negative"}">${money(record.realizedProfitTwd, "TW", true)}</td>
+      <td class="${record.realizedProfitTwd >= 0 ? "positive" : "negative"}">${percent(record.realizedReturnRate)}</td>
+      <td class="exchange-note-cell" title="${escapeHtml(record.note)}">${escapeHtml(record.note || "—")}</td>
+      <td class="action-column"><div class="annual-row-actions"><button class="row-edit" data-edit-exchange="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${escapeHtml(record.date)} 換匯記錄" title="編輯記錄">✎</button><button class="row-action" data-delete-exchange="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${escapeHtml(record.date)} 換匯記錄" title="刪除記錄">×</button></div></td>
+    </tr>
+  `).join("");
+  elements.exchangeRecordsEmpty.hidden = records.length > 0;
+  elements.exchangeRecordsBody.closest("table").hidden = records.length === 0;
+}
+
+function localDateValue() {
+  const now = new Date();
+  const shifted = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function openExchangeDialog(recordId = null) {
+  elements.exchangeForm.reset();
+  state.editingExchangeRecordId = recordId;
+  const record = recordId ? state.exchangeRecords.find(item => item.id === recordId) : null;
+  elements.exchangeDialogTitle.textContent = record ? `編輯 ${record.date} 換匯記錄` : "新增換匯記錄";
+  elements.exchangeSubmit.textContent = record ? "儲存修改" : "儲存換匯記錄";
+  elements.exchangeDate.value = record?.date || localDateValue();
+  elements.exchangeUsdAmount.value = record?.usdAmount || "";
+  elements.exchangeCostRate.value = record?.costRate || "";
+  elements.exchangeExecutionRate.value = record?.executionRate || "";
+  elements.exchangeTwdReceived.value = record?.twdReceived || "";
+  elements.exchangeFee.value = record?.feeTwd || 0;
+  elements.exchangeNote.value = record?.note || "";
+  elements.exchangeFormError.textContent = "";
+  renderExchangePreview();
+  elements.exchangeDialog.showModal();
+  setTimeout(() => elements.exchangeDate.focus(), 50);
+}
+
+async function saveExchangeForm(event) {
+  event.preventDefault();
+  const record = exchangeFormRecord();
+  const metrics = exchangeRecordMetrics(record);
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(record.date)
+    && metrics.usdAmount > 0
+    && metrics.costRate > 0
+    && metrics.executionRate > 0
+    && metrics.twdReceived >= 0
+    && metrics.feeTwd >= 0;
+  if (!valid) {
+    elements.exchangeFormError.textContent = "請確認日期、美元金額、匯率與實際入帳金額均已正確填寫。";
+    return;
+  }
+  try {
+    const editing = state.editingExchangeRecordId;
+    if (editing) await updateExchangeRecord(state.user.uid, editing, record);
+    else await saveExchangeRecord(state.user.uid, record);
+    elements.exchangeDialog.close();
+    state.editingExchangeRecordId = null;
+    showToast(`換匯記錄已${editing ? "更新" : "新增"}`);
+  } catch (error) {
+    elements.exchangeFormError.textContent = `儲存失敗：${friendlyFirebaseError(error)}`;
+  }
+}
+
+async function removeExchangeRecord(recordId) {
+  const record = state.exchangeRecords.find(item => item.id === recordId);
+  if (!record || !window.confirm(`確定刪除 ${record.date} 的換匯記錄？`)) return;
+  try {
+    await deleteExchangeRecord(state.user.uid, recordId);
+    showToast(`${record.date} 換匯記錄已刪除`);
+  } catch (error) {
+    showToast(`刪除失敗：${friendlyFirebaseError(error)}`);
+  }
+}
+
 function openPriceDialog(key = state.holdings[0] ? holdingKey(state.holdings[0]) : "") {
   elements.symbol.innerHTML = state.holdings.map(item => `<option value="${escapeHtml(holdingKey(item))}">${escapeHtml(item.symbol)} · ${escapeHtml(item.name)}</option>`).join("");
   elements.symbol.value = key;
@@ -1400,6 +1543,7 @@ document.querySelector("#open-history-record-dialog").addEventListener("click", 
 document.querySelector("#open-transaction-dialog").addEventListener("click", openTransactionDialog);
 document.querySelector("#open-annual-summary-dialog").addEventListener("click", () => openAnnualSummaryDialog());
 document.querySelector("#open-salary-dialog").addEventListener("click", () => openSalaryDialog());
+document.querySelector("#open-exchange-dialog").addEventListener("click", () => openExchangeDialog());
 document.querySelector("#delete-holding").addEventListener("click", deleteHolding);
 elements.cashTwd.addEventListener("input", renderCashPreview);
 elements.cashUsd.addEventListener("input", renderCashPreview);
@@ -1431,6 +1575,9 @@ elements.salaryForm.addEventListener("submit", saveSalaryForm);
 elements.salaryRecordType.addEventListener("change", syncSalaryFormLayout);
 elements.salaryForm.querySelectorAll('input[type="number"]').forEach(input => input.addEventListener("input", renderSalaryPreview));
 elements.salaryYearFilter.addEventListener("change", renderSalaryRecords);
+elements.exchangeForm.addEventListener("submit", saveExchangeForm);
+elements.exchangeForm.querySelectorAll('input[type="number"]').forEach(input => input.addEventListener("input", renderExchangePreview));
+elements.exchangeYearFilter.addEventListener("change", renderExchangeRecords);
 elements.transactionYearFilter.addEventListener("change", () => {
   state.transactionYearFilter = elements.transactionYearFilter.value;
   renderTransactions();
@@ -1488,6 +1635,12 @@ document.querySelector(".salary-page").addEventListener("click", event => {
   const deleteButton = event.target.closest("[data-delete-salary]");
   if (deleteButton) removeSalaryRecord(deleteButton.dataset.deleteSalary);
 });
+document.querySelector(".exchange-page").addEventListener("click", event => {
+  const editButton = event.target.closest("[data-edit-exchange]");
+  if (editButton) openExchangeDialog(editButton.dataset.editExchange);
+  const deleteButton = event.target.closest("[data-delete-exchange]");
+  if (deleteButton) removeExchangeRecord(deleteButton.dataset.deleteExchange);
+});
 document.querySelectorAll("[data-history-range]").forEach(button => {
   button.addEventListener("click", () => {
     document.querySelectorAll("[data-history-range]").forEach(item => item.classList.remove("active"));
@@ -1541,12 +1694,14 @@ observeAuthentication(user => {
   state.unsubscribeTransactions?.();
   state.unsubscribeAnnualSummaries?.();
   state.unsubscribeSalaryRecords?.();
+  state.unsubscribeExchangeRecords?.();
   state.unsubscribeHoldings = null;
   state.unsubscribeCash = null;
   state.unsubscribeSnapshots = null;
   state.unsubscribeTransactions = null;
   state.unsubscribeAnnualSummaries = null;
   state.unsubscribeSalaryRecords = null;
+  state.unsubscribeExchangeRecords = null;
   state.user = user;
   state.firebaseLoaded = false;
   state.cashLoaded = false;
@@ -1558,10 +1713,12 @@ observeAuthentication(user => {
     state.transactions = [];
     state.annualSummaries = [];
     state.salaryRecords = [];
+    state.exchangeRecords = [];
     renderHistoryChart();
     renderTransactions();
     renderAnnualSummaries();
     renderSalaryRecords();
+    renderExchangeRecords();
     elements.appShell.hidden = true;
     elements.authScreen.hidden = false;
     elements.authMessage.textContent = "請使用已啟用的 Google 帳號登入";
@@ -1615,6 +1772,14 @@ observeAuthentication(user => {
     state.salaryRecords = [];
     renderSalaryRecords();
     showToast(`薪資記錄讀取失敗：${friendlyFirebaseError(error)}`);
+  });
+  state.unsubscribeExchangeRecords = observeExchangeRecords(user.uid, records => {
+    state.exchangeRecords = normalizeExchangeRecords(records);
+    renderExchangeRecords();
+  }, error => {
+    state.exchangeRecords = [];
+    renderExchangeRecords();
+    showToast(`換匯記錄讀取失敗：${friendlyFirebaseError(error)}`);
   });
   state.unsubscribeHoldings = observeHoldings(user.uid, async holdings => {
     if (!state.firebaseLoaded) {

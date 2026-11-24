@@ -31,3 +31,9 @@ test("薪資記錄網址會切換獨立頁面與標題", () => {
   assert.equal(routeFromHash("#/SALARY"), "salary");
   assert.equal(titleForRoute("salary"), "StockV2｜薪資記錄");
 });
+
+test("換匯記錄網址會切換獨立頁面與標題", () => {
+  assert.equal(routeFromHash("#/exchange"), "exchange");
+  assert.equal(routeFromHash("#/EXCHANGE"), "exchange");
+  assert.equal(titleForRoute("exchange"), "StockV2｜換匯記錄");
+});

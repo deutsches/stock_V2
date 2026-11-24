@@ -97,6 +97,12 @@ export function observeSalaryRecords(uid, onData, onError) {
   }, onError);
 }
 
+export function observeExchangeRecords(uid, onData, onError) {
+  return onValue(ref(database, userPath(uid, "exchangeRecords")), snapshot => {
+    onData(snapshot.val());
+  }, onError);
+}
+
 export function replaceHoldings(uid, holdings) {
   const records = holdings.reduce((result, holding) => {
     result[firebaseHoldingKey(holding)] = {
@@ -211,6 +217,34 @@ export function updateSalaryRecord(uid, recordId, record) {
 
 export function deleteSalaryRecord(uid, recordId) {
   return remove(ref(database, userPath(uid, `salaryRecords/${recordId}`)));
+}
+
+function exchangeRecordPayload(record) {
+  return {
+    date: record.date,
+    usdAmount: record.usdAmount,
+    costRate: record.costRate,
+    executionRate: record.executionRate,
+    twdReceived: record.twdReceived,
+    feeTwd: record.feeTwd,
+    note: record.note
+  };
+}
+
+export function saveExchangeRecord(uid, record) {
+  const exchangeRef = push(ref(database, userPath(uid, "exchangeRecords")));
+  return set(exchangeRef, { ...exchangeRecordPayload(record), createdAt: serverTimestamp() });
+}
+
+export function updateExchangeRecord(uid, recordId, record) {
+  return update(ref(database, userPath(uid, `exchangeRecords/${recordId}`)), {
+    ...exchangeRecordPayload(record),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export function deleteExchangeRecord(uid, recordId) {
+  return remove(ref(database, userPath(uid, `exchangeRecords/${recordId}`)));
 }
 
 export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {
