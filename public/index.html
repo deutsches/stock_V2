@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f4f3ee" />
     <title>StockV2｜投資總覽</title>
     <link rel="icon" href="./favicon.svg?v=2" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260914-salary-filter" />
+    <link rel="stylesheet" href="./styles.css?v=20261124-exchange-records" />
   </head>
   <body>
     <section class="auth-screen" id="auth-screen">
@@ -39,6 +39,9 @@
           </a>
           <a class="nav-item" href="#/salary" data-route-link="salary">
             <span class="nav-icon">薪</span><span>薪資記錄</span>
+          </a>
+          <a class="nav-item" href="#/exchange" data-route-link="exchange">
+            <span class="nav-icon">匯</span><span>換匯記錄</span>
           </a>
           <a class="nav-item" href="#/history" data-route-link="history">
             <span class="nav-icon">◷</span><span>資產歷史</span>
@@ -219,6 +222,41 @@
             <div class="salary-records-empty-wrap">
               <div class="empty-state compact-empty" id="salary-records-empty"><strong>尚無薪資記錄</strong><span>使用「新增薪資記錄」建立第一個月份。</span></div>
             </div>
+          </section>
+        </div>
+
+        <div class="route-page exchange-page" data-route-page="exchange" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">CURRENCY EXCHANGE</p>
+              <h1>換匯記錄</h1>
+              <p class="subtitle">記錄美元換回台幣的實際成交結果與已實現匯兌損益。</p>
+            </div>
+            <button class="button primary" id="open-exchange-dialog" type="button">＋ 新增換匯記錄</button>
+          </header>
+
+          <div class="exchange-toolbar">
+            <label>篩選年份<select id="exchange-year-filter"><option value="ALL">全部年份</option></select></label>
+          </div>
+
+          <section class="exchange-summary-grid" aria-label="換匯摘要">
+            <article><small>累計換回美元</small><strong id="exchange-usd-total">US$0.00</strong></article>
+            <article><small>累計入帳台幣</small><strong id="exchange-twd-total">NT$0</strong></article>
+            <article class="exchange-profit-card"><small>已實現匯兌損益</small><strong id="exchange-profit-total">NT$0</strong><span id="exchange-profit-rate">0%</span></article>
+          </section>
+
+          <section class="exchange-records-section" aria-labelledby="exchange-list-title">
+            <div class="section-heading">
+              <div><p class="eyebrow">EXCHANGE DETAILS</p><h2 id="exchange-list-title">換匯明細</h2><p>實際入帳台幣是銀行扣除費用後的入帳金額</p></div>
+            </div>
+            <div class="table-wrap">
+              <table class="exchange-table">
+                <thead><tr><th>日期</th><th>換回美元</th><th>成本匯率</th><th>成交匯率</th><th>實際入帳台幣</th><th>手續費</th><th>匯兌損益</th><th>報酬率</th><th>備註</th><th class="action-column exchange-actions-column"><span class="sr-only">操作</span></th></tr></thead>
+                <tbody id="exchange-records-body"></tbody>
+              </table>
+              <div class="empty-state compact-empty" id="exchange-records-empty"><strong>尚無換匯記錄</strong><span>完成換匯後，依銀行實際成交結果新增第一筆資料。</span></div>
+            </div>
+            <p class="table-note">換匯記錄不會自動修改首頁現金餘額；換匯完成後，請在投資總覽依銀行實際餘額更新台幣與美元現金。</p>
           </section>
         </div>
 
@@ -524,7 +562,30 @@
       </form>
     </dialog>
 
+    <dialog id="exchange-dialog" class="exchange-dialog">
+      <form method="dialog" id="exchange-form" autocomplete="off">
+        <div class="dialog-header"><div><p class="eyebrow">CURRENCY EXCHANGE</p><h2 id="exchange-dialog-title">新增換匯記錄</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
+        <p class="dialog-copy">請依銀行成交明細輸入；「實際入帳台幣」是已扣除手續費後真正入帳的金額。</p>
+        <div class="form-grid">
+          <label class="full-field">換匯日期<input id="exchange-date" type="date" required /></label>
+          <label>換回美元<div class="price-input"><span>US$</span><input id="exchange-usd-amount" type="number" min="0.01" step="0.01" required /></div></label>
+          <label>美元成本匯率<input id="exchange-cost-rate" type="number" min="0.0001" step="0.0001" required /></label>
+          <label>實際成交匯率<input id="exchange-execution-rate" type="number" min="0.0001" step="0.0001" required /></label>
+          <label>手續費<div class="price-input"><span>NT$</span><input id="exchange-fee" type="number" min="0" step="1" value="0" required /></div></label>
+          <label class="full-field">實際入帳台幣（已扣費）<div class="price-input"><span>NT$</span><input id="exchange-twd-received" type="number" min="0" step="1" required /></div></label>
+          <label class="full-field">備註<input id="exchange-note" type="text" maxlength="80" placeholder="例如 美元現金換回台幣" /></label>
+          <div class="exchange-form-preview full-field" aria-live="polite">
+            <span><small>美元成本</small><strong id="exchange-preview-cost">NT$0</strong></span>
+            <span><small>牌價試算</small><strong id="exchange-preview-quoted">NT$0</strong></span>
+            <span><small>已實現損益</small><strong id="exchange-preview-profit">NT$0</strong></span>
+          </div>
+        </div>
+        <p class="form-error" id="exchange-form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>取消</button><button class="button primary" id="exchange-submit" type="submit">儲存換匯記錄</button></div>
+      </form>
+    </dialog>
+
     <div class="toast" id="toast" role="status" aria-live="polite">價格已更新</div>
-    <script src="./app.js?v=20260914-history-close-only" type="module"></script>
+    <script src="./app.js?v=20261124-exchange-records" type="module"></script>
   </body>
 </html>

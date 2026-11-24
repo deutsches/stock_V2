@@ -306,6 +306,28 @@ dialog form { padding: 25px; }
 .salary-form-preview span, .salary-form-preview small, .salary-form-preview strong { display: block; }
 .salary-form-preview small { margin-bottom: 5px; color: var(--muted); font-size: 10px; }
 .salary-form-preview strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.exchange-toolbar { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 14px; }
+.exchange-toolbar label { color: var(--muted); font-size: 11px; font-weight: 700; }
+.exchange-toolbar select { min-width: 132px; margin-left: 8px; padding: 8px 30px 8px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; }
+.exchange-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.exchange-summary-grid article { padding: 21px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.exchange-summary-grid small, .exchange-summary-grid strong, .exchange-summary-grid span { display: block; }
+.exchange-summary-grid small { color: var(--muted); font-size: 10px; font-weight: 700; }
+.exchange-summary-grid strong { margin-top: 11px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(21px, 2vw, 29px); font-weight: 500; white-space: nowrap; }
+.exchange-summary-grid span { margin-top: 5px; font-size: 11px; font-weight: 700; }
+.exchange-profit-card { border-color: #d5e5dc !important; background: linear-gradient(135deg, #fff, #f5faf7) !important; }
+.exchange-records-section { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+.exchange-table { min-width: 1160px; }
+.exchange-table th, .exchange-table td { padding: 17px 14px; }
+.exchange-table th:first-child, .exchange-table td:first-child { padding-left: 24px; }
+.exchange-table td { font-size: 14px; }
+.exchange-note-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exchange-actions-column { width: 100px; }
+.exchange-dialog { width: min(600px, calc(100% - 32px)); }
+.exchange-form-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; padding: 14px; border-radius: 12px; background: var(--green-pale); }
+.exchange-form-preview span, .exchange-form-preview small, .exchange-form-preview strong { display: block; }
+.exchange-form-preview small { margin-bottom: 5px; color: var(--muted); font-size: 10px; }
+.exchange-form-preview strong { font-size: 15px; font-variant-numeric: tabular-nums; }
 .form-error { min-height: 18px; margin: 12px 0 0; color: var(--red); font-size: 11px; }
 label { display: grid; gap: 7px; margin-top: 15px; color: #4f5c55; font-size: 11px; font-weight: 700; }
 select, input { width: 100%; height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; outline: none; }
@@ -423,6 +445,9 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .salary-record-detail { padding: 0 16px 18px; }
   .salary-detail-grid { grid-template-columns: 1fr; }
   .salary-form-preview { grid-template-columns: 1fr; }
+  .exchange-summary-grid { grid-template-columns: 1fr; }
+  .exchange-toolbar label { display: flex; align-items: center; justify-content: space-between; }
+  .exchange-form-preview { grid-template-columns: 1fr; }
   .transaction-controls { align-items: stretch; flex-direction: column; }
   .transaction-search-label { width: 100%; }
   .transaction-heading { grid-template-columns: 1fr auto; gap: 18px 12px; }
