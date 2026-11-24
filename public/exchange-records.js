@@ -3,6 +3,14 @@ function finiteNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function applyExchangeCashDelta(cash, usdDelta, twdDelta) {
+  const usd = finiteNumber(cash?.usd) + finiteNumber(usdDelta);
+  const twd = finiteNumber(cash?.twd) + finiteNumber(twdDelta);
+  if (usd < -0.000001) return { error: "美元現金不足，請先確認首頁的美元現金餘額。" };
+  if (twd < -0.5) return { error: "台幣現金不足，無法還原這筆換匯記錄。" };
+  return { usd: Math.max(0, usd), twd: Math.max(0, twd) };
+}
+
 export function exchangeRecordMetrics(record) {
   const usdAmount = finiteNumber(record.usdAmount);
   const costRate = finiteNumber(record.costRate);
@@ -36,6 +44,7 @@ export function normalizeExchangeRecords(records) {
         id,
         date: String(record?.date || ""),
         note: String(record?.note || "").trim(),
+        cashApplied: record?.cashApplied === true,
         createdAt: finiteNumber(record?.createdAt),
         ...metrics
       };

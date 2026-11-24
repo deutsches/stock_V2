@@ -328,6 +328,10 @@ dialog form { padding: 25px; }
 .exchange-form-preview span, .exchange-form-preview small, .exchange-form-preview strong { display: block; }
 .exchange-form-preview small { margin-bottom: 5px; color: var(--muted); font-size: 10px; }
 .exchange-form-preview strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.exchange-cash-impact { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; border: 1px dashed #cad7d0; border-radius: 12px; background: #f9fbfa; }
+.exchange-cash-impact span, .exchange-cash-impact small, .exchange-cash-impact strong { display: block; }
+.exchange-cash-impact small { margin-bottom: 5px; color: var(--muted); font-size: 10px; }
+.exchange-cash-impact strong { font-size: 15px; font-variant-numeric: tabular-nums; }
 .form-error { min-height: 18px; margin: 12px 0 0; color: var(--red); font-size: 11px; }
 label { display: grid; gap: 7px; margin-top: 15px; color: #4f5c55; font-size: 11px; font-weight: 700; }
 select, input { width: 100%; height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; outline: none; }
@@ -448,6 +452,7 @@ select:focus, input:focus { border-color: #83ad98; box-shadow: 0 0 0 3px #e9f2ed
   .exchange-summary-grid { grid-template-columns: 1fr; }
   .exchange-toolbar label { display: flex; align-items: center; justify-content: space-between; }
   .exchange-form-preview { grid-template-columns: 1fr; }
+  .exchange-cash-impact { grid-template-columns: 1fr; }
   .transaction-controls { align-items: stretch; flex-direction: column; }
   .transaction-search-label { width: 100%; }
   .transaction-heading { grid-template-columns: 1fr auto; gap: 18px 12px; }

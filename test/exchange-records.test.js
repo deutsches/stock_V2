@@ -1,11 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyExchangeCashDelta,
   exchangeRecordMetrics,
   filterExchangeRecords,
   normalizeExchangeRecords,
   summarizeExchangeRecords
 } from "../public/exchange-records.js";
+
+test("新增換匯會同時扣美元並增加實際入帳台幣", () => {
+  assert.deepEqual(
+    applyExchangeCashDelta({ usd: 5000, twd: 100000 }, -1000, 32900),
+    { usd: 4000, twd: 132900 }
+  );
+});
+
+test("美元不足或刪除時台幣不足會拒絕現金異動", () => {
+  assert.match(applyExchangeCashDelta({ usd: 500, twd: 100000 }, -1000, 32900).error, /美元現金不足/);
+  assert.match(applyExchangeCashDelta({ usd: 4000, twd: 10000 }, 1000, -32900).error, /台幣現金不足/);
+});
 
 test("換匯損益依實際入帳台幣減去美元成本計算", () => {
   const metrics = exchangeRecordMetrics({

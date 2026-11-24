@@ -229,6 +229,8 @@ const elements = {
   exchangePreviewCost: document.querySelector("#exchange-preview-cost"),
   exchangePreviewQuoted: document.querySelector("#exchange-preview-quoted"),
   exchangePreviewProfit: document.querySelector("#exchange-preview-profit"),
+  exchangePreviewUsdCash: document.querySelector("#exchange-preview-usd-cash"),
+  exchangePreviewTwdCash: document.querySelector("#exchange-preview-twd-cash"),
   exchangeYearFilter: document.querySelector("#exchange-year-filter"),
   exchangeRecordsBody: document.querySelector("#exchange-records-body"),
   exchangeRecordsEmpty: document.querySelector("#exchange-records-empty"),
@@ -1044,10 +1046,22 @@ function exchangeFormRecord() {
 
 function renderExchangePreview() {
   const metrics = exchangeRecordMetrics(exchangeFormRecord());
+  const previous = state.editingExchangeRecordId
+    ? state.exchangeRecords.find(record => record.id === state.editingExchangeRecordId)
+    : null;
+  const previousUsd = previous?.cashApplied ? previous.usdAmount : 0;
+  const previousTwd = previous?.cashApplied ? previous.twdReceived : 0;
+  const legacyWithoutCashSync = previous && !previous.cashApplied;
+  const nextUsdCash = legacyWithoutCashSync ? state.cash.usd : state.cash.usd + previousUsd - metrics.usdAmount;
+  const nextTwdCash = legacyWithoutCashSync ? state.cash.twd : state.cash.twd - previousTwd + metrics.twdReceived;
   elements.exchangePreviewCost.textContent = money(metrics.costTwd);
   elements.exchangePreviewQuoted.textContent = money(metrics.quotedTwd);
   elements.exchangePreviewProfit.textContent = money(metrics.realizedProfitTwd, "TW", true);
   elements.exchangePreviewProfit.className = metrics.realizedProfitTwd >= 0 ? "positive" : "negative";
+  elements.exchangePreviewUsdCash.textContent = money(nextUsdCash, "US");
+  elements.exchangePreviewTwdCash.textContent = money(nextTwdCash);
+  elements.exchangePreviewUsdCash.className = nextUsdCash >= 0 ? "" : "negative";
+  elements.exchangePreviewTwdCash.className = nextTwdCash >= 0 ? "" : "negative";
 }
 
 function renderExchangeRecords() {
@@ -1110,6 +1124,18 @@ function openExchangeDialog(recordId = null) {
   setTimeout(() => elements.exchangeDate.focus(), 50);
 }
 
+function applyExchangeCashResult(result) {
+  const cash = result?.snapshot?.val()?.cash;
+  if (!cash) return;
+  state.cash = {
+    twd: Number(cash.twd) || 0,
+    usd: Number(cash.usd) || 0,
+    updatedAt: Number(cash.updatedAt) || null
+  };
+  renderSummary();
+  checkAssetSnapshot(true);
+}
+
 async function saveExchangeForm(event) {
   event.preventDefault();
   const record = exchangeFormRecord();
@@ -1126,8 +1152,10 @@ async function saveExchangeForm(event) {
   }
   try {
     const editing = state.editingExchangeRecordId;
-    if (editing) await updateExchangeRecord(state.user.uid, editing, record);
-    else await saveExchangeRecord(state.user.uid, record);
+    const result = editing
+      ? await updateExchangeRecord(state.user.uid, editing, record)
+      : await saveExchangeRecord(state.user.uid, record);
+    applyExchangeCashResult(result);
     elements.exchangeDialog.close();
     state.editingExchangeRecordId = null;
     showToast(`換匯記錄已${editing ? "更新" : "新增"}`);
@@ -1140,7 +1168,8 @@ async function removeExchangeRecord(recordId) {
   const record = state.exchangeRecords.find(item => item.id === recordId);
   if (!record || !window.confirm(`確定刪除 ${record.date} 的換匯記錄？`)) return;
   try {
-    await deleteExchangeRecord(state.user.uid, recordId);
+    const result = await deleteExchangeRecord(state.user.uid, recordId);
+    applyExchangeCashResult(result);
     showToast(`${record.date} 換匯記錄已刪除`);
   } catch (error) {
     showToast(`刪除失敗：${friendlyFirebaseError(error)}`);
