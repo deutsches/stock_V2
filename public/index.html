@@ -256,7 +256,7 @@
               </table>
               <div class="empty-state compact-empty" id="exchange-records-empty"><strong>尚無換匯記錄</strong><span>完成換匯後，依銀行實際成交結果新增第一筆資料。</span></div>
             </div>
-            <p class="table-note">換匯記錄不會自動修改首頁現金餘額；換匯完成後，請在投資總覽依銀行實際餘額更新台幣與美元現金。</p>
+            <p class="table-note">新增換匯記錄會同步扣除美元現金並增加實際入帳台幣；修改或刪除記錄時，現金差額也會一起調整。</p>
           </section>
         </div>
 
@@ -565,7 +565,7 @@
     <dialog id="exchange-dialog" class="exchange-dialog">
       <form method="dialog" id="exchange-form" autocomplete="off">
         <div class="dialog-header"><div><p class="eyebrow">CURRENCY EXCHANGE</p><h2 id="exchange-dialog-title">新增換匯記錄</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="關閉">×</button></div>
-        <p class="dialog-copy">請依銀行成交明細輸入；「實際入帳台幣」是已扣除手續費後真正入帳的金額。</p>
+        <p class="dialog-copy">請依銀行成交明細輸入；儲存後會同步扣除美元現金，並增加已扣除手續費後的實際入帳台幣。</p>
         <div class="form-grid">
           <label class="full-field">換匯日期<input id="exchange-date" type="date" required /></label>
           <label>換回美元<div class="price-input"><span>US$</span><input id="exchange-usd-amount" type="number" min="0.01" step="0.01" required /></div></label>
@@ -578,6 +578,10 @@
             <span><small>美元成本</small><strong id="exchange-preview-cost">NT$0</strong></span>
             <span><small>牌價試算</small><strong id="exchange-preview-quoted">NT$0</strong></span>
             <span><small>已實現損益</small><strong id="exchange-preview-profit">NT$0</strong></span>
+          </div>
+          <div class="exchange-cash-impact full-field" aria-live="polite">
+            <span><small>換匯後美元現金</small><strong id="exchange-preview-usd-cash">US$0.00</strong></span>
+            <span><small>換匯後台幣現金</small><strong id="exchange-preview-twd-cash">NT$0</strong></span>
           </div>
         </div>
         <p class="form-error" id="exchange-form-error" role="alert"></p>

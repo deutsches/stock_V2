@@ -18,6 +18,7 @@ import {
   update
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { applyExchangeCashDelta } from "./exchange-records.js";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
@@ -227,24 +228,84 @@ function exchangeRecordPayload(record) {
     executionRate: record.executionRate,
     twdReceived: record.twdReceived,
     feeTwd: record.feeTwd,
-    note: record.note
+    note: record.note,
+    cashApplied: record.cashApplied !== false
   };
+}
+
+function exchangeCashFailure(message) {
+  const error = new Error(message);
+  error.code = "exchange/cash-balance";
+  return error;
+}
+
+async function commitExchangeCashChange(uid, updater) {
+  let failureMessage = "換匯與現金同步失敗，請稍後重試。";
+  const result = await runTransaction(ref(database, userPath(uid)), currentValue => {
+    const userData = currentValue && typeof currentValue === "object" ? currentValue : {};
+    const outcome = updater(userData);
+    if (outcome?.error) {
+      failureMessage = outcome.error;
+      return;
+    }
+    return userData;
+  }, { applyLocally: false });
+  if (!result.committed) throw exchangeCashFailure(failureMessage);
+  return result;
 }
 
 export function saveExchangeRecord(uid, record) {
   const exchangeRef = push(ref(database, userPath(uid, "exchangeRecords")));
-  return set(exchangeRef, { ...exchangeRecordPayload(record), createdAt: serverTimestamp() });
+  const recordId = exchangeRef.key;
+  return commitExchangeCashChange(uid, userData => {
+    const cash = applyExchangeCashDelta(userData.cash, -record.usdAmount, record.twdReceived);
+    if (cash.error) return cash;
+    userData.cash = { ...cash, updatedAt: serverTimestamp() };
+    userData.exchangeRecords = userData.exchangeRecords || {};
+    userData.exchangeRecords[recordId] = {
+      ...exchangeRecordPayload({ ...record, cashApplied: true }),
+      createdAt: serverTimestamp()
+    };
+    return {};
+  });
 }
 
 export function updateExchangeRecord(uid, recordId, record) {
-  return update(ref(database, userPath(uid, `exchangeRecords/${recordId}`)), {
-    ...exchangeRecordPayload(record),
-    updatedAt: serverTimestamp()
+  return commitExchangeCashChange(uid, userData => {
+    const previous = userData.exchangeRecords?.[recordId];
+    if (!previous) return { error: "找不到原本的換匯記錄，請重新整理後再試。" };
+    const cashWasApplied = previous.cashApplied === true;
+    if (cashWasApplied) {
+      const cash = applyExchangeCashDelta(
+        userData.cash,
+        Number(previous.usdAmount) - record.usdAmount,
+        -Number(previous.twdReceived) + record.twdReceived
+      );
+      if (cash.error) return cash;
+      userData.cash = { ...cash, updatedAt: serverTimestamp() };
+    }
+    userData.exchangeRecords[recordId] = {
+      ...previous,
+      ...exchangeRecordPayload({ ...record, cashApplied: cashWasApplied }),
+      updatedAt: serverTimestamp()
+    };
+    return {};
   });
 }
 
 export function deleteExchangeRecord(uid, recordId) {
-  return remove(ref(database, userPath(uid, `exchangeRecords/${recordId}`)));
+  return commitExchangeCashChange(uid, userData => {
+    const previous = userData.exchangeRecords?.[recordId];
+    if (!previous) return { error: "找不到要刪除的換匯記錄。" };
+    if (previous.cashApplied === true) {
+      const cash = applyExchangeCashDelta(userData.cash, Number(previous.usdAmount), -Number(previous.twdReceived));
+      if (cash.error) return cash;
+      userData.cash = { ...cash, updatedAt: serverTimestamp() };
+    }
+    delete userData.exchangeRecords[recordId];
+    if (Object.keys(userData.exchangeRecords).length === 0) delete userData.exchangeRecords;
+    return {};
+  });
 }
 
 export async function createSnapshotIfMissing(uid, snapshotId, snapshot) {
