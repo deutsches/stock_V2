@@ -19,7 +19,7 @@ import {
   update
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { applyExchangeCashDelta } from "./exchange-records.js";
+import { applyExchangeCashDelta, exchangeCashMovement } from "./exchange-records.js?v=20261125-bidirectional-exchange";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
@@ -224,10 +224,11 @@ export function deleteSalaryRecord(uid, recordId) {
 function exchangeRecordPayload(record) {
   return {
     date: record.date,
+    direction: record.direction,
     usdAmount: record.usdAmount,
     costRate: record.costRate,
     executionRate: record.executionRate,
-    twdReceived: record.twdReceived,
+    twdAmount: record.twdAmount,
     feeTwd: record.feeTwd,
     note: record.note,
     cashApplied: record.cashApplied !== false
@@ -263,7 +264,8 @@ export function saveExchangeRecord(uid, record) {
   const exchangeRef = push(ref(database, userPath(uid, "exchangeRecords")));
   const recordId = exchangeRef.key;
   return commitExchangeCashChange(uid, userData => {
-    const cash = applyExchangeCashDelta(userData.cash, -record.usdAmount, record.twdReceived);
+    const movement = exchangeCashMovement(record);
+    const cash = applyExchangeCashDelta(userData.cash, movement.usdDelta, movement.twdDelta);
     if (cash.error) return cash;
     userData.cash = { ...cash, updatedAt: serverTimestamp() };
     userData.exchangeRecords = userData.exchangeRecords || {};
@@ -281,10 +283,12 @@ export function updateExchangeRecord(uid, recordId, record) {
     if (!previous) return { error: "找不到原本的換匯記錄，請重新整理後再試。" };
     const cashWasApplied = previous.cashApplied === true;
     if (cashWasApplied) {
+      const previousMovement = exchangeCashMovement(previous);
+      const nextMovement = exchangeCashMovement(record);
       const cash = applyExchangeCashDelta(
         userData.cash,
-        Number(previous.usdAmount) - record.usdAmount,
-        -Number(previous.twdReceived) + record.twdReceived
+        -previousMovement.usdDelta + nextMovement.usdDelta,
+        -previousMovement.twdDelta + nextMovement.twdDelta
       );
       if (cash.error) return cash;
       userData.cash = { ...cash, updatedAt: serverTimestamp() };
@@ -303,7 +307,8 @@ export function deleteExchangeRecord(uid, recordId) {
     const previous = userData.exchangeRecords?.[recordId];
     if (!previous) return { error: "找不到要刪除的換匯記錄。" };
     if (previous.cashApplied === true) {
-      const cash = applyExchangeCashDelta(userData.cash, Number(previous.usdAmount), -Number(previous.twdReceived));
+      const movement = exchangeCashMovement(previous);
+      const cash = applyExchangeCashDelta(userData.cash, -movement.usdDelta, -movement.twdDelta);
       if (cash.error) return cash;
       userData.cash = { ...cash, updatedAt: serverTimestamp() };
     }

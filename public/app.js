@@ -27,7 +27,7 @@ import {
   updateAnnualSummary,
   updateExchangeRecord,
   updateSalaryRecord
-} from "./firebase-service.js?v=20261125-exchange-cash-read";
+} from "./firebase-service.js?v=20261125-bidirectional-exchange";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 import { sortHoldings } from "./holding-sort.js";
 import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js?v=20260914-close-only";
@@ -38,7 +38,7 @@ import { routeFromHash, titleForRoute } from "./router.js";
 import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes } from "./price-service.js";
 import { calculateDashboardMetrics } from "./dashboard-metrics.js";
 import { normalizeSalaryRecords, salaryRecordLabel, salaryRecordMetrics, summarizeSalaryRecords } from "./salary-records.js?v=20260914-salary-bonus-month";
-import { exchangeRecordMetrics, filterExchangeRecords, normalizeExchangeRecords, summarizeExchangeRecords } from "./exchange-records.js?v=20261124-exchange-records";
+import { exchangeCashMovement, exchangeRecordMetrics, filterExchangeRecords, normalizeExchangeRecords, summarizeExchangeRecords, TWD_TO_USD as DIRECTION_TWD_TO_USD, USD_TO_TWD as DIRECTION_USD_TO_TWD } from "./exchange-records.js?v=20261125-bidirectional-exchange";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
@@ -218,17 +218,25 @@ const elements = {
   exchangeDialogTitle: document.querySelector("#exchange-dialog-title"),
   exchangeSubmit: document.querySelector("#exchange-submit"),
   exchangeForm: document.querySelector("#exchange-form"),
+  exchangeDirection: document.querySelector("#exchange-direction"),
+  exchangeDialogCopy: document.querySelector("#exchange-dialog-copy"),
   exchangeDate: document.querySelector("#exchange-date"),
+  exchangeUsdLabel: document.querySelector("#exchange-usd-label"),
   exchangeUsdAmount: document.querySelector("#exchange-usd-amount"),
+  exchangeCostField: document.querySelector("#exchange-cost-field"),
   exchangeCostRate: document.querySelector("#exchange-cost-rate"),
   exchangeExecutionRate: document.querySelector("#exchange-execution-rate"),
-  exchangeTwdReceived: document.querySelector("#exchange-twd-received"),
+  exchangeTwdLabel: document.querySelector("#exchange-twd-label"),
+  exchangeTwdAmount: document.querySelector("#exchange-twd-amount"),
   exchangeFee: document.querySelector("#exchange-fee"),
   exchangeNote: document.querySelector("#exchange-note"),
   exchangeFormError: document.querySelector("#exchange-form-error"),
   exchangePreviewCost: document.querySelector("#exchange-preview-cost"),
+  exchangePreviewCostLabel: document.querySelector("#exchange-preview-cost-label"),
   exchangePreviewQuoted: document.querySelector("#exchange-preview-quoted"),
+  exchangePreviewQuotedLabel: document.querySelector("#exchange-preview-quoted-label"),
   exchangePreviewProfit: document.querySelector("#exchange-preview-profit"),
+  exchangePreviewProfitLabel: document.querySelector("#exchange-preview-profit-label"),
   exchangePreviewUsdCash: document.querySelector("#exchange-preview-usd-cash"),
   exchangePreviewTwdCash: document.querySelector("#exchange-preview-twd-cash"),
   exchangeYearFilter: document.querySelector("#exchange-year-filter"),
@@ -1033,15 +1041,29 @@ async function removeSalaryRecord(recordId) {
 }
 
 function exchangeFormRecord() {
+  const direction = elements.exchangeDirection.value === DIRECTION_TWD_TO_USD ? DIRECTION_TWD_TO_USD : DIRECTION_USD_TO_TWD;
   return {
     date: elements.exchangeDate.value,
+    direction,
     usdAmount: Number(elements.exchangeUsdAmount.value),
-    costRate: Number(elements.exchangeCostRate.value),
+    costRate: direction === DIRECTION_USD_TO_TWD ? Number(elements.exchangeCostRate.value) : 0,
     executionRate: Number(elements.exchangeExecutionRate.value),
-    twdReceived: Number(elements.exchangeTwdReceived.value),
+    twdAmount: Number(elements.exchangeTwdAmount.value),
     feeTwd: Number(elements.exchangeFee.value || 0),
     note: elements.exchangeNote.value.trim()
   };
+}
+
+function syncExchangeFormDirection() {
+  const reverse = elements.exchangeDirection.value === DIRECTION_TWD_TO_USD;
+  elements.exchangeCostField.hidden = reverse;
+  elements.exchangeCostRate.required = !reverse;
+  elements.exchangeUsdLabel.textContent = reverse ? "實際入帳美元" : "換出美元";
+  elements.exchangeTwdLabel.textContent = reverse ? "實際扣款台幣（已含費）" : "實際入帳台幣（已扣費）";
+  elements.exchangeDialogCopy.textContent = reverse
+    ? "請依銀行成交明細輸入；儲存後會扣除台幣現金並增加實際入帳美元。"
+    : "請依銀行成交明細輸入；儲存後會扣除美元現金並增加實際入帳台幣。";
+  renderExchangePreview();
 }
 
 function renderExchangePreview() {
@@ -1049,15 +1071,28 @@ function renderExchangePreview() {
   const previous = state.editingExchangeRecordId
     ? state.exchangeRecords.find(record => record.id === state.editingExchangeRecordId)
     : null;
-  const previousUsd = previous?.cashApplied ? previous.usdAmount : 0;
-  const previousTwd = previous?.cashApplied ? previous.twdReceived : 0;
   const legacyWithoutCashSync = previous && !previous.cashApplied;
-  const nextUsdCash = legacyWithoutCashSync ? state.cash.usd : state.cash.usd + previousUsd - metrics.usdAmount;
-  const nextTwdCash = legacyWithoutCashSync ? state.cash.twd : state.cash.twd - previousTwd + metrics.twdReceived;
-  elements.exchangePreviewCost.textContent = money(metrics.costTwd);
-  elements.exchangePreviewQuoted.textContent = money(metrics.quotedTwd);
-  elements.exchangePreviewProfit.textContent = money(metrics.realizedProfitTwd, "TW", true);
-  elements.exchangePreviewProfit.className = metrics.realizedProfitTwd >= 0 ? "positive" : "negative";
+  const previousMovement = previous?.cashApplied ? exchangeCashMovement(previous) : { usdDelta: 0, twdDelta: 0 };
+  const nextMovement = legacyWithoutCashSync ? { usdDelta: 0, twdDelta: 0 } : exchangeCashMovement(metrics);
+  const nextUsdCash = state.cash.usd - previousMovement.usdDelta + nextMovement.usdDelta;
+  const nextTwdCash = state.cash.twd - previousMovement.twdDelta + nextMovement.twdDelta;
+  if (metrics.direction === DIRECTION_TWD_TO_USD) {
+    elements.exchangePreviewCostLabel.textContent = "本次美元成本";
+    elements.exchangePreviewQuotedLabel.textContent = "牌價試算";
+    elements.exchangePreviewProfitLabel.textContent = "實際取得匯率";
+    elements.exchangePreviewCost.textContent = money(metrics.twdAmount);
+    elements.exchangePreviewQuoted.textContent = money(metrics.quotedTwd);
+    elements.exchangePreviewProfit.textContent = number(metrics.effectiveRate, 4);
+    elements.exchangePreviewProfit.className = "";
+  } else {
+    elements.exchangePreviewCostLabel.textContent = "美元成本";
+    elements.exchangePreviewQuotedLabel.textContent = "牌價試算";
+    elements.exchangePreviewProfitLabel.textContent = "已實現損益";
+    elements.exchangePreviewCost.textContent = money(metrics.costTwd);
+    elements.exchangePreviewQuoted.textContent = money(metrics.quotedTwd);
+    elements.exchangePreviewProfit.textContent = money(metrics.realizedProfitTwd, "TW", true);
+    elements.exchangePreviewProfit.className = metrics.realizedProfitTwd >= 0 ? "positive" : "negative";
+  }
   elements.exchangePreviewUsdCash.textContent = money(nextUsdCash, "US");
   elements.exchangePreviewTwdCash.textContent = money(nextTwdCash);
   elements.exchangePreviewUsdCash.className = nextUsdCash >= 0 ? "" : "negative";
@@ -1071,8 +1106,11 @@ function renderExchangeRecords() {
   elements.exchangeYearFilter.value = availableYears.includes(selectedYear) ? selectedYear : "ALL";
   const records = filterExchangeRecords(state.exchangeRecords, elements.exchangeYearFilter.value);
   const summary = summarizeExchangeRecords(state.exchangeRecords, elements.exchangeYearFilter.value);
-  document.querySelector("#exchange-usd-total").textContent = money(summary.usdAmount, "US");
-  document.querySelector("#exchange-twd-total").textContent = money(summary.twdReceived);
+  document.querySelector("#exchange-sold-usd-total").textContent = money(summary.soldUsd, "US");
+  document.querySelector("#exchange-received-twd-total").textContent = money(summary.receivedTwd);
+  document.querySelector("#exchange-bought-usd-total").textContent = money(summary.boughtUsd, "US");
+  document.querySelector("#exchange-spent-twd-total").textContent = money(summary.spentTwd);
+  document.querySelector("#exchange-fee-total").textContent = money(summary.feeTwd);
   const profitNode = document.querySelector("#exchange-profit-total");
   const rateNode = document.querySelector("#exchange-profit-rate");
   profitNode.textContent = money(summary.realizedProfitTwd, "TW", true);
@@ -1084,13 +1122,14 @@ function renderExchangeRecords() {
   elements.exchangeRecordsBody.innerHTML = records.map(record => `
     <tr>
       <td>${escapeHtml(record.date)}</td>
+      <td><span class="exchange-direction-badge ${record.direction === DIRECTION_TWD_TO_USD ? "reverse" : ""}">${record.direction === DIRECTION_TWD_TO_USD ? "台幣 → 美元" : "美元 → 台幣"}</span></td>
       <td>${money(record.usdAmount, "US")}</td>
-      <td>${number(record.costRate, 4)}</td>
+      <td>${money(record.twdAmount)}</td>
+      <td>${record.direction === DIRECTION_TWD_TO_USD ? "—" : number(record.costRate, 4)}</td>
       <td>${number(record.executionRate, 4)}</td>
-      <td>${money(record.twdReceived)}</td>
       <td>${money(record.feeTwd)}</td>
-      <td class="${record.realizedProfitTwd >= 0 ? "positive" : "negative"}">${money(record.realizedProfitTwd, "TW", true)}</td>
-      <td class="${record.realizedProfitTwd >= 0 ? "positive" : "negative"}">${percent(record.realizedReturnRate)}</td>
+      <td class="${record.direction === DIRECTION_TWD_TO_USD ? "" : record.realizedProfitTwd >= 0 ? "positive" : "negative"}">${record.direction === DIRECTION_TWD_TO_USD ? "—" : money(record.realizedProfitTwd, "TW", true)}</td>
+      <td class="${record.direction === DIRECTION_TWD_TO_USD ? "" : record.realizedProfitTwd >= 0 ? "positive" : "negative"}">${record.direction === DIRECTION_TWD_TO_USD ? "—" : percent(record.realizedReturnRate)}</td>
       <td class="exchange-note-cell" title="${escapeHtml(record.note)}">${escapeHtml(record.note || "—")}</td>
       <td class="action-column"><div class="annual-row-actions"><button class="row-edit" data-edit-exchange="${escapeHtml(record.id)}" type="button" aria-label="編輯 ${escapeHtml(record.date)} 換匯記錄" title="編輯記錄">✎</button><button class="row-action" data-delete-exchange="${escapeHtml(record.id)}" type="button" aria-label="刪除 ${escapeHtml(record.date)} 換匯記錄" title="刪除記錄">×</button></div></td>
     </tr>
@@ -1111,15 +1150,16 @@ function openExchangeDialog(recordId = null) {
   const record = recordId ? state.exchangeRecords.find(item => item.id === recordId) : null;
   elements.exchangeDialogTitle.textContent = record ? `編輯 ${record.date} 換匯記錄` : "新增換匯記錄";
   elements.exchangeSubmit.textContent = record ? "儲存修改" : "儲存換匯記錄";
+  elements.exchangeDirection.value = record?.direction || DIRECTION_USD_TO_TWD;
   elements.exchangeDate.value = record?.date || localDateValue();
   elements.exchangeUsdAmount.value = record?.usdAmount || "";
   elements.exchangeCostRate.value = record?.costRate || "";
   elements.exchangeExecutionRate.value = record?.executionRate || "";
-  elements.exchangeTwdReceived.value = record?.twdReceived || "";
+  elements.exchangeTwdAmount.value = record?.twdAmount || "";
   elements.exchangeFee.value = record?.feeTwd || 0;
   elements.exchangeNote.value = record?.note || "";
   elements.exchangeFormError.textContent = "";
-  renderExchangePreview();
+  syncExchangeFormDirection();
   elements.exchangeDialog.showModal();
   setTimeout(() => elements.exchangeDate.focus(), 50);
 }
@@ -1142,9 +1182,9 @@ async function saveExchangeForm(event) {
   const metrics = exchangeRecordMetrics(record);
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(record.date)
     && metrics.usdAmount > 0
-    && metrics.costRate > 0
+    && (metrics.direction === DIRECTION_TWD_TO_USD || metrics.costRate > 0)
     && metrics.executionRate > 0
-    && metrics.twdReceived >= 0
+    && metrics.twdAmount > 0
     && metrics.feeTwd >= 0;
   if (!valid) {
     elements.exchangeFormError.textContent = "請確認日期、美元金額、匯率與實際入帳金額均已正確填寫。";
@@ -1605,6 +1645,7 @@ elements.salaryRecordType.addEventListener("change", syncSalaryFormLayout);
 elements.salaryForm.querySelectorAll('input[type="number"]').forEach(input => input.addEventListener("input", renderSalaryPreview));
 elements.salaryYearFilter.addEventListener("change", renderSalaryRecords);
 elements.exchangeForm.addEventListener("submit", saveExchangeForm);
+elements.exchangeDirection.addEventListener("change", syncExchangeFormDirection);
 elements.exchangeForm.querySelectorAll('input[type="number"]').forEach(input => input.addEventListener("input", renderExchangePreview));
 elements.exchangeYearFilter.addEventListener("change", renderExchangeRecords);
 elements.transactionYearFilter.addEventListener("change", () => {
