@@ -6,6 +6,15 @@ function finiteNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function exchangeTransactionBase(currentValue, prefetchedValue) {
+  const source = currentValue && typeof currentValue === "object"
+    ? currentValue
+    : prefetchedValue && typeof prefetchedValue === "object"
+      ? prefetchedValue
+      : {};
+  return JSON.parse(JSON.stringify(source));
+}
+
 function recordDirection(record) {
   return record?.direction === TWD_TO_USD ? TWD_TO_USD : USD_TO_TWD;
 }

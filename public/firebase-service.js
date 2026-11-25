@@ -19,7 +19,11 @@ import {
   update
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { applyExchangeCashDelta, exchangeCashMovement } from "./exchange-records.js?v=20261125-bidirectional-exchange";
+import {
+  applyExchangeCashDelta,
+  exchangeCashMovement,
+  exchangeTransactionBase
+} from "./exchange-records.js?v=20261125-exchange-cash-fallback";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
@@ -246,9 +250,13 @@ async function commitExchangeCashChange(uid, updater) {
   const userRef = ref(database, userPath(uid));
   // Transactions start from the local cache. Prime the user root first so a
   // cold page load does not briefly treat an existing cash balance as zero.
-  await get(userRef);
+  const prefetchedSnapshot = await get(userRef);
+  const prefetchedValue = prefetchedSnapshot.val();
   const result = await runTransaction(userRef, currentValue => {
-    const userData = currentValue && typeof currentValue === "object" ? currentValue : {};
+    // Firebase may invoke the transaction callback with a cold null cache
+    // before it supplies the server value. Use the authoritative prefetch for
+    // that first pass so an existing cash balance is not treated as zero.
+    const userData = exchangeTransactionBase(currentValue, prefetchedValue);
     const outcome = updater(userData);
     if (outcome?.error) {
       failureMessage = outcome.error;

@@ -27,7 +27,7 @@ import {
   updateAnnualSummary,
   updateExchangeRecord,
   updateSalaryRecord
-} from "./firebase-service.js?v=20261125-bidirectional-exchange";
+} from "./firebase-service.js?v=20261125-exchange-cash-fallback";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 import { sortHoldings } from "./holding-sort.js";
 import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js?v=20260914-close-only";
@@ -38,7 +38,7 @@ import { routeFromHash, titleForRoute } from "./router.js";
 import { applyQuotes, duePriceMarkets, fetchFinnhubQuotes, fetchTaiwanQuotes } from "./price-service.js";
 import { calculateDashboardMetrics } from "./dashboard-metrics.js";
 import { normalizeSalaryRecords, salaryRecordLabel, salaryRecordMetrics, summarizeSalaryRecords } from "./salary-records.js?v=20260914-salary-bonus-month";
-import { exchangeCashMovement, exchangeRecordMetrics, filterExchangeRecords, normalizeExchangeRecords, summarizeExchangeRecords, TWD_TO_USD as DIRECTION_TWD_TO_USD, USD_TO_TWD as DIRECTION_USD_TO_TWD } from "./exchange-records.js?v=20261125-bidirectional-exchange";
+import { exchangeCashMovement, exchangeRecordMetrics, filterExchangeRecords, normalizeExchangeRecords, summarizeExchangeRecords, TWD_TO_USD as DIRECTION_TWD_TO_USD, USD_TO_TWD as DIRECTION_USD_TO_TWD } from "./exchange-records.js?v=20261125-exchange-cash-fallback";
 
 const STORAGE_KEY = "stockv2-portfolio-v1";
 const FINNHUB_KEY_STORAGE = `${STORAGE_KEY}-finnhub-api-key`;
