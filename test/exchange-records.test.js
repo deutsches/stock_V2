@@ -4,11 +4,26 @@ import {
   applyExchangeCashDelta,
   exchangeCashMovement,
   exchangeRecordMetrics,
+  exchangeTransactionBase,
   filterExchangeRecords,
   normalizeExchangeRecords,
   summarizeExchangeRecords,
   TWD_TO_USD
 } from "../public/exchange-records.js";
+
+test("Firebase transaction 冷快取為 null 時會使用預先讀取的現金", () => {
+  const prefetched = { cash: { usd: 65659.55, twd: 2598192 }, exchangeRecords: { existing: { usdAmount: 1 } } };
+  const userData = exchangeTransactionBase(null, prefetched);
+  assert.deepEqual(userData.cash, prefetched.cash);
+  userData.cash.usd = 50659.55;
+  assert.equal(prefetched.cash.usd, 65659.55);
+});
+
+test("Firebase transaction 重試時優先使用最新伺服器資料", () => {
+  const prefetched = { cash: { usd: 65659.55, twd: 2598192 } };
+  const current = { cash: { usd: 70000, twd: 2600000 } };
+  assert.deepEqual(exchangeTransactionBase(current, prefetched).cash, current.cash);
+});
 
 test("新增換匯會同時扣美元並增加實際入帳台幣", () => {
   assert.deepEqual(
