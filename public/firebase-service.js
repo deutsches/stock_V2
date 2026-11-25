@@ -8,6 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import {
   getDatabase,
+  get,
   onValue,
   push,
   ref,
@@ -241,7 +242,11 @@ function exchangeCashFailure(message) {
 
 async function commitExchangeCashChange(uid, updater) {
   let failureMessage = "換匯與現金同步失敗，請稍後重試。";
-  const result = await runTransaction(ref(database, userPath(uid)), currentValue => {
+  const userRef = ref(database, userPath(uid));
+  // Transactions start from the local cache. Prime the user root first so a
+  // cold page load does not briefly treat an existing cash balance as zero.
+  await get(userRef);
+  const result = await runTransaction(userRef, currentValue => {
     const userData = currentValue && typeof currentValue === "object" ? currentValue : {};
     const outcome = updater(userData);
     if (outcome?.error) {

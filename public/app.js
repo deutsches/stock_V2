@@ -27,7 +27,7 @@ import {
   updateAnnualSummary,
   updateExchangeRecord,
   updateSalaryRecord
-} from "./firebase-service.js";
+} from "./firebase-service.js?v=20261125-exchange-cash-read";
 import { buildAssetSnapshot, getCurrentSnapshotSlot } from "./snapshot-scheduler.js";
 import { sortHoldings } from "./holding-sort.js";
 import { buildHistoryChartModel, calculateHistoryStats, filterSnapshotsByRange, normalizeSnapshots } from "./history-chart.js?v=20260914-close-only";
